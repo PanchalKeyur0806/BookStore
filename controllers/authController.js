@@ -10,6 +10,7 @@ const signToken = (userId) => {
   });
 };
 
+// resiger function for authenticating the user
 const register = catchAsync(async (req, res, next) => {
   const { name, email, password, dateOfBirth, phoneNumber, gender, address } =
     req.body;
@@ -36,16 +37,35 @@ const register = catchAsync(async (req, res, next) => {
   });
 });
 
+// login function for login the users
 const login = catchAsync(async (req, res, next) => {
+  // get the data from frontend
   const { email, password } = req.body;
 
+  // check that user is exists or not
   const findUser = await User.findOne({ email });
   if (!findUser) {
     return next(new AppError("No user found ", 404));
   }
 
+  // check the correct password
+  const checkPassword = await findUser.comparePassword(
+    password,
+    findUser.password
+  );
+  if (!checkPassword) {
+    return next(
+      new AppError(
+        "your password is incorrect, please enter correct password",
+        401
+      )
+    );
+  }
+
+  // generate the token
   const token = signToken(findUser._id);
 
+  // return the response
   res.status(200).json({
     status: "success",
     token,
