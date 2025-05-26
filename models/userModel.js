@@ -1,0 +1,89 @@
+import mongoose from "mongoose";
+
+const userSchema = mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  email: {
+    type: String,
+    unique: true,
+    required: true,
+  },
+  isEmailVerified: {
+    type: Boolean,
+    default: false,
+  },
+  emailVerifiedToken: {
+    type: String,
+  },
+  password: {
+    type: String,
+    required: true,
+    min: 8,
+    max: 16,
+  },
+  passwordResetToken: {
+    type: String,
+  },
+  passwordExpires: {
+    type: Date,
+  },
+  role: {
+    type: String,
+    enum: ["user", "admin"],
+    required: true,
+  },
+  dateOfBirth: {
+    type: Date,
+    required: true,
+  },
+  phoneNumber: {
+    type: Number,
+    required: true,
+  },
+  gender: {
+    type: String,
+    enum: ["male", "female", "others"],
+    default: "others",
+    required: true,
+  },
+  address: [
+    {
+      type: {
+        type: String,
+        required: true,
+      },
+      street: { type: String, required: true },
+      city: { type: String, required: true },
+      state: { type: String, required: true },
+      zipCode: { type: Number, required: true },
+      country: { type: String, required: true },
+    },
+  ],
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
+
+  //   cart option
+  cart: [
+    {
+      book: { type: mongoose.Schema.ObjectId, ref: "Cart" },
+      quantity: { type: Number, default: 1 },
+      addedAt: { type: Date, default: Date.now },
+    },
+  ],
+
+  //   purchase history
+  totalOrderes: { type: Number, default: 0 },
+  totalSpent: { type: Number, default: 0 },
+
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
+});
+
+const User = mongoose.model("User", userSchema);
+
+export default User;
