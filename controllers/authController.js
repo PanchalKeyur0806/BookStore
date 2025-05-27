@@ -261,4 +261,55 @@ const resetPassword = catchAsync(async (req, res, next) => {
   });
 });
 
-export { register, login, verifyOtp, resendOtp, forgotPassword, resetPassword };
+// protect route
+const protect = catchAsync(async (req, res, next) => {
+  let token;
+
+  // check that token is exists or not
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer")
+  ) {
+    // get the token
+    token = req.headers.authorization.split(" ")[1];
+    if (!token) {
+      return next(new AppError("Please login to access this page", 400));
+    }
+
+    // verify the token
+    const decode = jwt.verify(token, process.env.JWT_SECRET_KEY);
+
+    // find the user
+    const findUser = await User.findById(decode.id);
+    if (!findUser) {
+      return next(new AppError("user not found, please register first", 404));
+    }
+
+    // check that user is verified or not
+    const verifiedUser = findUser.isEmailVerified;
+    if (!verifiedUser) {
+      return next(
+        new AppError(
+          "you are not verified, please verified first then try again",
+          403
+        )
+      );
+    }
+
+    req.user = decode;
+  } else {
+    return next(new AppError("Token not found please register first", 400));
+  }
+
+  next();
+});
+
+export {
+  register,
+  login,
+  verifyOtp,
+  resendOtp,
+  forgotPassword,
+  resetPassword,
+  protect,
+};

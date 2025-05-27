@@ -6,6 +6,7 @@ import {
   resendOtp,
   forgotPassword,
   resetPassword,
+  protect,
 } from "../controllers/authController.js";
 
 // middlewares
@@ -20,7 +21,7 @@ router.post("/resendOtp", resendOtp);
 router.post("/register", validateRegister, register);
 router.post("/login", validateLogin, login);
 
-router.post("/forgotpassword", forgotPassword);
-router.post("/resetpassword/:token", resetPassword);
+router.post("/forgotpassword", protect, forgotPassword);
+router.post("/resetpassword/:token", protect, resetPassword);
 
 export default router;
