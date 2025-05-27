@@ -1,8 +1,13 @@
 import jwt from "jsonwebtoken";
 
 import User from "../models/userModel.js";
+
 import { catchAsync } from "../utils/catchAsync.js";
 import AppError from "../utils/AppError.js";
+
+import sendEmail from "../utils/nodemailer.js";
+import generateOtp from "../utils/otpGenerator.js";
+import { application } from "express";
 
 const signToken = (userId) => {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET_KEY, {
@@ -26,14 +31,115 @@ const register = catchAsync(async (req, res, next) => {
     address,
   });
 
-  // generate the token
-  const token = signToken(createUser._id);
+  // send otp to client
+  const { otp, optExpiry } = generateOtp();
+  createUser.emailVerifiedToken = otp;
+  createUser.verificationTokenExpiry = new Date(optExpiry);
+
+  await createUser.save({ validateBeforeSave: false });
+
+  try {
+    await sendEmail({
+      email: process.env.USER_EMAIL,
+      subject: "Your otp",
+      message: `how are you? here your otp ${otp} and your otp expiry is in 30 seconds`,
+    });
+  } catch (error) {
+    await User.findByIdAndDelete(createUser._id);
+    return next(
+      new AppError("failed to send an otp, please try again later", 400)
+    );
+  }
 
   // send response to the user
   res.status(200).json({
-    message: "success",
-    token,
+    status: "success",
+    message: "user is registered, otp is being sent to email for verification",
     data: createUser,
+  });
+});
+
+// verify otp after registration
+const verifyOtp = catchAsync(async (req, res, next) => {
+  const { email } = req.body;
+  const { otp } = req.body;
+  if (!otp) {
+    return next(new AppError("please provide an otp for verification", 400));
+  }
+
+  const findUser = await User.findOne({ email });
+  if (!findUser) {
+    return next(new AppError("user does not exists", 404));
+  }
+
+  if (findUser.isEmailVerified) {
+    return next(new AppError("user already verified", 400));
+  }
+
+  const otpIsExpiried = Date.now() > findUser.verificationTokenExpiry;
+  if (otpIsExpiried) {
+    return next(new AppError("otp is expired", 400));
+  }
+
+  if (findUser.emailVerifiedToken !== otp) {
+    return next(new AppError("please enter correct otp", 400));
+  }
+
+  findUser.isEmailVerified = true;
+  findUser.emailVerifiedToken = undefined;
+  findUser.verificationTokenExpiry = undefined;
+
+  await findUser.save({ validateBeforeSave: false });
+
+  // generate the token
+  const token = signToken(findUser._id);
+
+  res.status(200).json({
+    status: "success",
+    message: "otp verified successfully",
+    token,
+    data: findUser,
+  });
+});
+
+// resend otp
+const resendOtp = catchAsync(async (req, res, next) => {
+  const { email } = req.body;
+  if (!email) {
+    return next(new AppError("please provide your email", 400));
+  }
+
+  const findUser = await User.findOne({ email });
+  if (!findUser) {
+    return next(new AppError("user not found", 404));
+  }
+
+  if (findUser.isEmailVerified) {
+    return next(new AppError("user already verified", 400));
+  }
+
+  // send otp to client
+  const { otp, optExpiry } = generateOtp();
+  findUser.emailVerifiedToken = otp;
+  findUser.verificationTokenExpiry = new Date(optExpiry);
+
+  await findUser.save({ validateBeforeSave: false });
+
+  try {
+    await sendEmail({
+      email: process.env.USER_EMAIL,
+      subject: "Your otp",
+      message: `how are you? here your otp ${otp} and your otp expiry is in 30 seconds`,
+    });
+  } catch (error) {
+    return next(
+      new AppError("failed to send an otp, please try again later", 400)
+    );
+  }
+
+  res.status(200).json({
+    status: "success",
+    message: "otp is sent to email, please check your email",
   });
 });
 
@@ -73,4 +179,4 @@ const login = catchAsync(async (req, res, next) => {
   });
 });
 
-export { register, login };
+export { register, login, verifyOtp, resendOtp };
