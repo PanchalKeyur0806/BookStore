@@ -4,6 +4,8 @@ import {
   login,
   verifyOtp,
   resendOtp,
+  forgotPassword,
+  resetPassword,
 } from "../controllers/authController.js";
 
 // middlewares
@@ -17,5 +19,8 @@ router.post("/resendOtp", resendOtp);
 
 router.post("/register", validateRegister, register);
 router.post("/login", validateLogin, login);
+
+router.post("/forgotpassword", forgotPassword);
+router.post("/resetpassword/:token", resetPassword);
 
 export default router;

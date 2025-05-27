@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 
 import User from "../models/userModel.js";
 
@@ -159,6 +160,7 @@ const login = catchAsync(async (req, res, next) => {
     password,
     findUser.password
   );
+
   if (!checkPassword) {
     return next(
       new AppError(
@@ -179,4 +181,84 @@ const login = catchAsync(async (req, res, next) => {
   });
 });
 
-export { register, login, verifyOtp, resendOtp };
+// forgot password
+const forgotPassword = catchAsync(async (req, res, next) => {
+  const { email } = req.body;
+  if (!email) {
+    return next(new AppError("please provide email address", 400));
+  }
+
+  const findUser = await User.findOne({ email });
+  if (!findUser) {
+    return next(new AppError("user not found", 400));
+  }
+
+  const resetToken = crypto.randomBytes(32).toString("hex");
+  findUser.passwordResetToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+  findUser.passwordExpires = Date.now() + 30 * 1000;
+
+  await findUser.save({ validateBeforeSave: false });
+
+  const url = `${req.protocol}://${req.get(
+    "host"
+  )}/auth/resetPassword/${resetToken}`;
+  const message = `forget your password? please click this link to change your password ${url}`;
+
+  try {
+    await sendEmail({
+      email: process.env.USER_EMAIL,
+      subject: "Forgot your password",
+      message: message,
+    });
+  } catch (error) {
+    return next(
+      new AppError(
+        "Error occured while sending email, please try again later",
+        400
+      )
+    );
+  }
+
+  res.status(200).json({
+    status: "success",
+    message: "email send successfully",
+  });
+});
+
+// reset password
+const resetPassword = catchAsync(async (req, res, next) => {
+  const { password } = req.body;
+  if (!password) {
+    return next(new AppError("please provide your password", 400));
+  }
+
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(req.params.token)
+    .digest("hex");
+
+  const findUser = await User.findOne({
+    passwordResetToken: hashedToken,
+    passwordExpires: { $gt: Date.now() },
+  });
+
+  if (!findUser) {
+    return next(new AppError("user not found", 400));
+  }
+
+  findUser.password = password;
+  findUser.passwordResetToken = undefined;
+  findUser.passwordExpires = undefined;
+
+  await findUser.save();
+
+  res.status(200).json({
+    status: "success",
+    message: "password chagned successfully",
+  });
+});
+
+export { register, login, verifyOtp, resendOtp, forgotPassword, resetPassword };

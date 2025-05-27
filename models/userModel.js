@@ -20,7 +20,7 @@ const userSchema = mongoose.Schema({
     type: Number,
   },
   verificationTokenExpiry: {
-    type: Date
+    type: Date,
   },
   password: {
     type: String,
@@ -90,6 +90,9 @@ const userSchema = mongoose.Schema({
 
 // hasing the passwords
 userSchema.pre("save", async function (next) {
+  // Only run if password is modified
+  if (!this.isModified("password")) return next();
+
   this.password = await bcrypt.hash(this.password, 12);
 
   next();
