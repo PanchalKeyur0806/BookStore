@@ -1,7 +1,7 @@
 import { body, validationResult } from "express-validator";
 import AppError from "../utils/AppError.js";
 
-export const validateRegister = [
+export const validateBooks = [
   body("title")
     .isString()
     .withMessage("please enter correct book name")
@@ -27,8 +27,8 @@ export const validateRegister = [
     .withMessage("please enter your description field"),
 
   body("price")
-    .isLength({ min: 10 })
-    .withMessage("phoneNumber min length must be 1 characters")
+    .isLength({ min: 1 })
+    .withMessage("price min length must be 1 characters")
     .isNumeric()
     .withMessage("please enter correct price")
     .notEmpty()
