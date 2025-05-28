@@ -24,6 +24,11 @@ const cartSchema = mongoose.Schema({
   ],
   totalPrice: {
     type: Number,
+    default: 0,
+  },
+  totalQuantity: {
+    type: Number,
+    default: 0,
   },
   isOrdered: {
     type: Boolean,

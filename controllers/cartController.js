@@ -1,4 +1,5 @@
 import Cart from "../models/cartModel.js";
+import Books from "../models/booksModel.js";
 import AppError from "../utils/AppError.js";
 import { catchAsync } from "../utils/catchAsync.js";
 
@@ -10,6 +11,9 @@ const addToCart = catchAsync(async (req, res, next) => {
   //   fetch user id from req.user
   const userId = req.user.id;
 
+  // find the book
+  const book = await Books.findById(bookId);
+
   //   find the card according to user
   let cart = await Cart.findOne({ user: userId });
 
@@ -19,6 +23,8 @@ const addToCart = catchAsync(async (req, res, next) => {
     cart = new Cart({
       user: userId,
       items: [{ book: bookId, quantity: quantity }],
+      totalQuantity: quantity,
+      totalPrice: book.price * quantity,
     });
   }
 
@@ -35,11 +41,20 @@ const addToCart = catchAsync(async (req, res, next) => {
     // if the book exists in cart
     // increase the quantity
     if (index > -1) {
+      let oldQuantity = cart.items[index].quantity;
       cart.items[index].quantity += quantity;
+
+      // update total
+      cart.totalQuantity += quantity;
+      cart.totalPrice += book.price * quantity;
     }
     // else push book to the cart
     else {
       cart.items.push({ book: bookId, quantity });
+
+      // update the total
+      cart.totalQuantity += quantity;
+      cart.totalPrice += book.price * quantity;
     }
   }
 
@@ -57,6 +72,7 @@ const addToCart = catchAsync(async (req, res, next) => {
 // remove specific item from the cart
 const removeBookFromCart = catchAsync(async (req, res, next) => {
   const { bookId } = req.body;
+  //   get the book id from the book
   const { id } = req.user;
   if (!bookId) {
     return next(
@@ -64,6 +80,7 @@ const removeBookFromCart = catchAsync(async (req, res, next) => {
     );
   }
 
+  //   find existing cart from the DB
   let findExistingCart = await Cart.findOne({ user: id });
   if (!findExistingCart) {
     return next(
@@ -75,14 +92,21 @@ const removeBookFromCart = catchAsync(async (req, res, next) => {
   const index = findExistingCart.items.findIndex(
     (item) => item.book.toString() === bookId
   );
+
+  //   if book not found in the index
+  //   return the error
   if (index === -1) {
     return next(new AppError("book not found in the cart", 404));
-  } else {
+  }
+  //   else remove the book form the cart
+  else {
     findExistingCart.items.splice(index, 1);
   }
 
+  //   save the cart
   await findExistingCart.save();
 
+  //   return the response
   res.status(200).json({
     status: "success",
     message: "book was removed",
