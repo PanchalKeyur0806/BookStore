@@ -1,10 +1,14 @@
 import express from "express";
 
 import { protect } from "../controllers/authController.js";
-import { allUser } from "../controllers/userController.js";
+import { allUser, getUser, me } from "../controllers/userController.js";
 
 const router = express.Router();
 
-router.get("/allusers", protect, allUser);
+router.use(protect);
+
+router.get("/allusers", allUser);
+router.get("/me", me);
+router.get("/:userId", getUser);
 
 export default router;
