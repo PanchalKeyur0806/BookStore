@@ -11,8 +11,13 @@ const addToCart = catchAsync(async (req, res, next) => {
   //   fetch user id from req.user
   const userId = req.user.id;
 
-  // find the book
+  // check the quantity of Books
   const book = await Books.findById(bookId);
+  if (book.stock < quantity) {
+    return next(
+      new AppError(`Book quantity should be between 0 and ${book.stock}`, 400)
+    );
+  }
 
   //   find the card according to user
   let cart = await Cart.findOne({ user: userId });
@@ -41,7 +46,18 @@ const addToCart = catchAsync(async (req, res, next) => {
     // if the book exists in cart
     // increase the quantity
     if (index > -1) {
-      let oldQuantity = cart.items[index].quantity;
+      let existingQty = cart.items[index].quantity;
+      const newTotalQty = existingQty + quantity;
+
+      if (newTotalQty > book.stock) {
+        return next(
+          new AppError(
+            `Only ${book.stock - existingQty} more units available`,
+            400
+          )
+        );
+      }
+
       cart.items[index].quantity += quantity;
 
       // update total
@@ -50,6 +66,12 @@ const addToCart = catchAsync(async (req, res, next) => {
     }
     // else push book to the cart
     else {
+      if (quantity > book.stock) {
+        return next(
+          new AppError(`Only ${book.stock} more units available`, 400)
+        );
+      }
+
       cart.items.push({ book: bookId, quantity });
 
       // update the total
@@ -98,9 +120,21 @@ const removeBookFromCart = catchAsync(async (req, res, next) => {
   if (index === -1) {
     return next(new AppError("book not found in the cart", 404));
   }
-  //   else remove the book form the cart
-  else {
-    findExistingCart.items.splice(index, 1);
+
+  const removedItem = findExistingCart.items[index];
+  const removedQty = removedItem.quantity;
+
+  const findBook = await Books.findById(removedItem.book._id);
+  const removedPrice = findBook.price * removedQty;
+
+  findExistingCart.items.splice(index, 1);
+
+  findExistingCart.totalPrice -= removedPrice;
+  findExistingCart.totalQuantity -= removedQty;
+
+  if (findExistingCart.items.length === 0) {
+    findExistingCart.totalPrice = 0;
+    findExistingCart.totalQuantity = 0;
   }
 
   //   save the cart
