@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import Cart from "../models/cartModel.js";
 import Books from "../models/booksModel.js";
 import catchAsync from "../../urlshortener/utils/catchAsync.js";
+import User from "../models/userModel.js";
 
 dotenv.config();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -11,6 +12,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const createCheckoutSession = catchAsync(async (req, res, next) => {
   const loggedInUser = req.user.id;
 
+  let user = await User.findById(loggedInUser);
   let cart = await Cart.findOne({ user: loggedInUser }).populate("items.book");
 
   const line_items = cart.items.map((item) => ({
@@ -21,15 +23,18 @@ const createCheckoutSession = catchAsync(async (req, res, next) => {
       },
       unit_amount: item.book.price * 100,
     },
-    quantity: item.totalQuantity,
+    quantity: item.quantity,
   }));
 
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ["card"],
     mode: "payment",
     line_items,
-    success_url: `${req.protocol}/${req.get("host")}/orders/success`,
-    cancel_url: `${req.protocol}/${req.get("host")}/orders/cancel`,
+    customer_email: user.email,
+    success_url: `${req.protocol}://${req.get(
+      "host"
+    )}/orders/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${req.protocol}://${req.get("host")}/orders/cancel`,
   });
 
   res.status(200).json({
@@ -39,4 +44,14 @@ const createCheckoutSession = catchAsync(async (req, res, next) => {
   });
 });
 
-export { createCheckoutSession };
+const success = catchAsync(async (req, res, next) => {
+  const session = await stripe.checkout.sessions.retrieve(req.query.session_id);
+
+  res.redirect("/");
+});
+
+const cancel = catchAsync(async (req, res, next) => {
+  res.redirect("/");
+});
+
+export { createCheckoutSession, success };
