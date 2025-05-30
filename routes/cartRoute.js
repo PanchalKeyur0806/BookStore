@@ -9,6 +9,6 @@ import { protect } from "../controllers/authController.js";
 const router = express.Router();
 
 router.post("/addToCart", protect, addToCart);
-router.post("/removeBookFromCart", protect, removeBookFromCart);
+router.post("/removeBookFromCart/:bookId", protect, removeBookFromCart);
 
 export default router;

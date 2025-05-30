@@ -93,7 +93,7 @@ const addToCart = catchAsync(async (req, res, next) => {
 
 // remove specific item from the cart
 const removeBookFromCart = catchAsync(async (req, res, next) => {
-  const { bookId } = req.body;
+  const { bookId } = req.params;
   //   get the book id from the book
   const { id } = req.user;
   if (!bookId) {
