@@ -1,5 +1,7 @@
 import express from "express";
 
+import makeReservation from "../middlewares/makeReservation.js";
+
 import {
   createCheckoutSession,
   success,
@@ -9,7 +11,12 @@ import { protect } from "../controllers/authController.js";
 
 const routes = express.Router();
 
-routes.post("/createcheckoutsession", protect, createCheckoutSession);
+routes.post(
+  "/createcheckoutsession",
+  protect,
+  makeReservation,
+  createCheckoutSession
+);
 routes.get("/success", success);
 
 export default routes;
