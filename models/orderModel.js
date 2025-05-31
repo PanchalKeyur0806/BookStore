@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const orderSchema = new mongoose.Schema(
+const orderSchema = mongoose.Schema(
   {
     user: {
       type: mongoose.Schema.ObjectId,
@@ -57,7 +57,7 @@ const orderSchema = new mongoose.Schema(
         enum: ["unpaid", "paid", "failed"],
         default: "unpaid",
       },
-      paidAt: { type: Date },
+      paidAt: { type: Date, default: Date.now },
     },
 
     createdAt: {

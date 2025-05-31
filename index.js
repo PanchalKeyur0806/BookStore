@@ -11,9 +11,14 @@ import orderRoutes from "./routes/orderRoutes.js";
 // global error handler
 import errorHandler from "./controllers/errorController.js";
 
+import { webhook } from "./controllers/orderController.js";
+
 dotenv.config();
 
 const app = express();
+
+// webhook for payment integration
+app.post("/webhook", express.raw({ type: "application/json" }), webhook);
 
 app.use(express.json());
 

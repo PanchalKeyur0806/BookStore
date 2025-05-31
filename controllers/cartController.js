@@ -15,7 +15,10 @@ const addToCart = catchAsync(async (req, res, next) => {
   const book = await Books.findById(bookId);
   if (book.stock < quantity) {
     return next(
-      new AppError(`Book quantity should be between 0 and ${book.stock}`, 400)
+      new AppError(
+        `No book stock is available yet, please contact admin to futher information`,
+        400
+      )
     );
   }
 

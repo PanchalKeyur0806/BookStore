@@ -53,19 +53,17 @@ const userSchema = mongoose.Schema({
     default: "others",
     required: true,
   },
-  address: [
-    {
-      type: {
-        type: String,
-        required: true,
-      },
-      street: { type: String, required: true },
-      city: { type: String, required: true },
-      state: { type: String, required: true },
-      zipCode: { type: Number, required: true },
-      country: { type: String, required: true },
+  address:{
+    line: {
+      type: String,
+      required: true,
     },
-  ],
+    street: { type: String, required: true },
+    city: { type: String, required: true },
+    state: { type: String, required: true },
+    zipCode: { type: Number, required: true },
+    country: { type: String, required: true },
+  },
   isActive: {
     type: Boolean,
     default: true,

@@ -5,6 +5,7 @@ const errorHandler = (err, req, res, next) => {
     status: "Error",
     message: message || "Some error occured, please report to admin",
     statusCode: statusCode || 500,
+    stackTrace: err.stack,
   });
 };
 

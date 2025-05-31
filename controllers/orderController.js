@@ -5,6 +5,7 @@ import Cart from "../models/cartModel.js";
 import Books from "../models/booksModel.js";
 import User from "../models/userModel.js";
 import Reservation from "../models/reservationModel.js";
+import Order from "../models/orderModel.js";
 
 import catchAsync from "../../urlshortener/utils/catchAsync.js";
 import AppError from "../utils/AppError.js";
@@ -65,4 +66,99 @@ const cancel = catchAsync(async (req, res, next) => {
   res.redirect("/");
 });
 
-export { createCheckoutSession, success };
+// stripe webhook
+const webhook = catchAsync(async (req, res, next) => {
+  const sig = req.headers["stripe-signature"];
+
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK
+    );
+  } catch (error) {
+    console.log(`WEB HOOK error ${error}`);
+  }
+
+  switch (event.type) {
+    case "checkout.session.completed":
+      try {
+        const session = event.data.object;
+
+        const user = await User.findOne({ email: session.customer_email });
+        const cart = await Cart.findOne({ user: user._id });
+        const reservation = await Reservation.findOne({ user: user._id });
+
+        if (session.payment_status === "paid") {
+          // save to order Db
+          const order = await Order.create({
+            user: user._id,
+            items: cart.items,
+            totalQuantity: cart.totalQuantity,
+            totalPrice: cart.totalPrice,
+            shippingAddress: {
+              name: user.name,
+              email: session.customer_email,
+              phoneNumber: user.phoneNumber,
+              street: user.address.line,
+              city: user.address.city,
+              state: user.address.state,
+              zipCode: user.address.zipCode,
+            },
+            orderStatus: "paid",
+            paymentInfo: {
+              stripePaymentId: session.id,
+              paymentMethod: "card",
+              status: "paid",
+            },
+          });
+
+          // update the book sales
+          const bulkOps = [];
+          for (const item of cart.items) {
+            const findBook = await Books.findById(item.book);
+            const slaesAmount = findBook.price * item.quantity;
+
+            bulkOps.push({
+              updateOne: {
+                filter: { _id: item.book },
+                update: { $inc: { totalSales: slaesAmount } },
+              },
+            });
+          }
+
+          // upload bulk of data using bulkWrite
+          if (bulkOps.length > 0) {
+            await Books.bulkWrite(bulkOps);
+            console.log("update the all book total sales");
+          }
+
+          // delete the cart and reservation
+          await Cart.findByIdAndDelete(cart._id);
+
+          if (reservation) {
+            await Reservation.findByIdAndDelete(reservation._id);
+          }
+        }
+      } catch (error) {
+        console.log("error ", error.message);
+        console.log("Stack trace ", error.stack);
+
+        return res.status(200).json({
+          status: "success",
+          message: "error occured",
+        });
+      }
+      break;
+
+    default:
+      break;
+  }
+
+  res.status(200).json({
+    status: "success",
+    message: "payment is successfull",
+  });
+});
+export { createCheckoutSession, success, webhook };
