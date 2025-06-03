@@ -69,9 +69,6 @@ const cancel = catchAsync(async (req, res, next) => {
 // refund the payment
 const refundPaymnet = catchAsync(async (req, res, next) => {
   const { stripePaymentId } = req.params;
-  if (!stripePaymentId) {
-    return next(new AppError("Payment Id is not found", 400));
-  }
 
   const createRefund = await stripe.refunds.create({
     payment_intent: stripePaymentId,
