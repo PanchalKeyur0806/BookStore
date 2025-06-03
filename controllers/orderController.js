@@ -66,6 +66,30 @@ const cancel = catchAsync(async (req, res, next) => {
   res.redirect("/");
 });
 
+// refund the payment
+const refundPaymnet = catchAsync(async (req, res, next) => {
+  const { stripePaymentId } = req.params;
+  if (!stripePaymentId) {
+    return next(new AppError("Payment Id is not found", 400));
+  }
+
+  const createRefund = await stripe.refunds.create({
+    payment_intent: stripePaymentId,
+    reason: "requested_by_customer",
+  });
+  if (!createRefund) {
+    return next(
+      new AppError("failed to create refund, please try again later", 404)
+    );
+  }
+
+  res.status(200).json({
+    status: "success",
+    message: "payment refund successfull",
+    data: createRefund,
+  });
+});
+
 // stripe webhook
 const webhook = catchAsync(async (req, res, next) => {
   const sig = req.headers["stripe-signature"];
@@ -108,7 +132,7 @@ const webhook = catchAsync(async (req, res, next) => {
             },
             orderStatus: "paid",
             paymentInfo: {
-              stripePaymentId: session.id,
+              stripePaymentId: session.payment_intent,
               paymentMethod: "card",
               status: "paid",
             },
@@ -154,6 +178,56 @@ const webhook = catchAsync(async (req, res, next) => {
       }
       break;
 
+    case "charge.refunded":
+      const charge = event.data.object;
+      const paymentId = charge.payment_intent;
+
+      // find the order
+      const order = await Order.findOne({
+        "paymentInfo.stripePaymentId": paymentId,
+      });
+
+      if (order) {
+        order.orderStatus = "cancelled";
+        order.paymentInfo.stripePaymentId = "cancelled";
+
+        await order.save();
+        console.log("order have been saved ", order._id);
+      }
+
+      // find books
+      const bulkOps = [];
+      for (const item of order.items) {
+        const findBook = await Books.findById(item.book);
+
+        const bookQty = item.quantity;
+        const salesAmount = order.totalPrice;
+
+        findBook.stock += bookQty;
+        findBook.totalSales -= salesAmount;
+
+        bulkOps.push({
+          updateOne: {
+            filter: { _id: item.book },
+            update: {
+              $inc: { totalSales: -salesAmount, stock: bookQty },
+            },
+          },
+        });
+      }
+
+      if (bulkOps.length > 0) {
+        await Books.bulkWrite(bulkOps);
+        console.log("book is refunded");
+      }
+      break;
+
+    case "refund.failed":
+      const refund = event.data.object;
+      console.log("refund have been failed ", refund);
+
+      break;
+
     default:
       break;
   }
@@ -163,4 +237,4 @@ const webhook = catchAsync(async (req, res, next) => {
     message: "payment is successfull",
   });
 });
-export { createCheckoutSession, success, webhook };
+export { createCheckoutSession, success, webhook, refundPaymnet };

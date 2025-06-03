@@ -54,7 +54,7 @@ const orderSchema = mongoose.Schema(
       paymentMethod: { type: String, enum: ["card"], default: "card" },
       status: {
         type: String,
-        enum: ["unpaid", "paid", "failed"],
+        enum: ["unpaid", "paid", "failed", "cancelled"],
         default: "unpaid",
       },
       paidAt: { type: Date, default: Date.now },

@@ -4,6 +4,7 @@ import makeReservation from "../middlewares/makeReservation.js";
 
 import {
   createCheckoutSession,
+  refundPaymnet,
   success,
 } from "../controllers/orderController.js";
 
@@ -17,6 +18,9 @@ routes.post(
   makeReservation,
   createCheckoutSession
 );
+
+routes.all("/refundPayment/:stripePaymentId", refundPaymnet);
+
 routes.get("/success", success);
 
 export default routes;
