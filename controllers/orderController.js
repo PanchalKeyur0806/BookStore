@@ -87,6 +87,33 @@ const refundPaymnet = catchAsync(async (req, res, next) => {
   });
 });
 
+// send invoices
+const createAndSendInvoices = catchAsync(async (req, res, next) => {
+  const customer = await stripe.customers.create({
+    email: "panchalkeyur694@gmail.com",
+    name: "Who am i?",
+  });
+
+  await stripe.invoiceItems.create({
+    customer: customer.id,
+    amount: "500",
+    currency: "inr",
+    description: "Purchase a book",
+  });
+
+  const invoice = await stripe.invoices.create({
+    customer: customer.id,
+    auto_advance: true,
+  });
+
+  await stripe.invoices.finalizeInvoice(invoice.id);
+
+  res.status(200).json({
+    status: "success",
+    message: "email sent successfully",
+  });
+});
+
 // stripe webhook
 const webhook = catchAsync(async (req, res, next) => {
   const sig = req.headers["stripe-signature"];
@@ -234,4 +261,10 @@ const webhook = catchAsync(async (req, res, next) => {
     message: "payment is successfull",
   });
 });
-export { createCheckoutSession, success, webhook, refundPaymnet };
+export {
+  createCheckoutSession,
+  success,
+  webhook,
+  refundPaymnet,
+  createAndSendInvoices,
+};
