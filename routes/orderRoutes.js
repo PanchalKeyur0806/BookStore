@@ -14,13 +14,21 @@ import checkRefundStatus from "../middlewares/checkRefundStatus.js";
 
 const routes = express.Router();
 
-routes.use(protect);
+routes.post(
+  "/createcheckoutsession",
+  protect,
+  makeReservation,
+  createCheckoutSession
+);
 
-routes.post("/createcheckoutsession", makeReservation, createCheckoutSession);
+routes.get("/getInvoices", protect, createAndSendInvoices);
 
-routes.get("/getInvoices", createAndSendInvoices);
-
-routes.get("/refundPayment/:stripePaymentId", checkRefundStatus, refundPaymnet);
+routes.get(
+  "/refundPayment/:stripePaymentId",
+  protect,
+  checkRefundStatus,
+  refundPaymnet
+);
 
 routes.get("/success", success);
 

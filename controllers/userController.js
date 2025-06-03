@@ -1,6 +1,7 @@
 import User from "../models/userModel.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import AppError from "../utils/AppError.js";
+import Order from "../models/orderModel.js";
 
 const allUser = catchAsync(async (req, res, next) => {
   const allUser = await User.find();
@@ -55,4 +56,35 @@ const me = catchAsync(async (req, res, next) => {
   });
 });
 
-export { allUser, getUser, me };
+// get the information of previous order history
+const getUserOrders = catchAsync(async (req, res, next) => {
+  const { id } = req.user;
+
+  const findAllUserOrders = await Order.find({ user: id });
+  if (!findAllUserOrders) {
+    return next(new AppError("orders not found", 404));
+  }
+
+  res.status(200).json({
+    status: "success",
+    length: findAllUserOrders.length,
+    data: findAllUserOrders,
+  });
+});
+
+// update the user information
+const updateUserInfo = catchAsync(async (req, res, next) => {
+  const { id } = req.user;
+
+  const updateUser = await User.findByIdAndUpdate(id, req.body);
+  if (!updateUser) {
+    return next(new AppError("user is not updated", 400));
+  }
+
+  res.status(201).json({
+    status: "success",
+    message: "user updated successfully",
+  });
+});
+
+export { allUser, getUser, me, getUserOrders, updateUserInfo };
