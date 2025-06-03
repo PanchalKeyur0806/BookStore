@@ -18,16 +18,6 @@ const makeReservation = catchAsync(async (req, res, next) => {
   //   get the book ids
   const bookIds = cart.items.map((item) => item.book);
 
-  //   make a reservation
-  const reservation = await Reservation.create({
-    user: id,
-    books: bookIds,
-    totalQty: cart.totalQuantity,
-  });
-  if (reservation === null || !reservation) {
-    return next(new AppError("Reservation is not created yet", 400));
-  }
-
   //   check the all books quantity in the carts
   for (const item of cart.items) {
     const book = await Books.findById(item.book);
@@ -39,14 +29,24 @@ const makeReservation = catchAsync(async (req, res, next) => {
     if (book.stock < item.quantity) {
       return next(
         new AppError(
-          `We have only ${book.stock >= 0 ? book.stock : 0} left`,
+          `We have only ${book.stock >= 0 ? book.stock : 0} of ${
+            book.title
+          } left`,
           400
         )
       );
     }
+  }
 
-    book.stock -= item.quantity;
-    await book.save();
+  //   make a reservation
+  const reservation = await Reservation.create({
+    user: id,
+    books: bookIds,
+    totalQty: cart.totalQuantity,
+  });
+
+  if (!reservation) {
+    return next(new AppError("Reservation is not created yet", 400));
   }
 
   next();

@@ -20,7 +20,7 @@ const reservationModel = mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
-    expires: 120,
+    expires: 20,
   },
 });
 

@@ -123,7 +123,9 @@ const webhook = catchAsync(async (req, res, next) => {
             bulkOps.push({
               updateOne: {
                 filter: { _id: item.book },
-                update: { $inc: { totalSales: slaesAmount } },
+                update: {
+                  $inc: { totalSales: slaesAmount, stock: -item.quantity },
+                },
               },
             });
           }
