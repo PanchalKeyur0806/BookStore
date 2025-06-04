@@ -34,6 +34,12 @@ const userSchema = mongoose.Schema({
   passwordExpires: {
     type: Date,
   },
+  faviourites: [
+    {
+      type: mongoose.Schema.ObjectId,
+      ref: "Books",
+    },
+  ],
   role: {
     type: String,
     enum: ["user", "admin"],
@@ -53,7 +59,7 @@ const userSchema = mongoose.Schema({
     default: "others",
     required: true,
   },
-  address:{
+  address: {
     line: {
       type: String,
       required: true,
@@ -92,6 +98,12 @@ userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
 
   this.password = await bcrypt.hash(this.password, 12);
+
+  next();
+});
+
+userSchema.pre(/^find/, function (next) {
+  this.find({ isActive: { $ne: false } });
 
   next();
 });
