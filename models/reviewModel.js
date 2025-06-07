@@ -29,7 +29,19 @@ const reviewSchema = mongoose.Schema(
   }
 );
 
-reviewSchema.index({ user: 1, product: 1 }, { unique: true });
+reviewSchema.index({ user: 1, book: 1 }, { unique: true });
+
+reviewSchema.pre(/^find/, function (next) {
+  this.populate({
+    path: "user",
+    select: "name",
+  }).populate({
+    path: "book",
+    select: "title",
+  });
+
+  next();
+});
 
 const Review = mongoose.model("Review", reviewSchema);
 
