@@ -4,6 +4,19 @@ import Review from "../models/reviewModel.js";
 import AppError from "../utils/AppError.js";
 import { catchAsync } from "../utils/catchAsync.js";
 
+// get all the reviews
+const getAllReviews = catchAsync(async (req, res, next) => {
+  const reviews = await Review.find();
+
+  res.status(200).json({
+    status: "success",
+    message: "reviews found successfully",
+    length: reviews.length,
+    data: reviews,
+  });
+});
+
+// create a review on books
 const createReview = catchAsync(async (req, res, next) => {
   const { review, rating } = req.body;
 
@@ -37,7 +50,7 @@ const getAllBooksReviews = catchAsync(async (req, res, next) => {
     return next(new AppError("Provide Book Id", 404));
   }
 
-  const reviews = await Review.find();
+  const reviews = await Review.find({ book: bookId });
 
   if (reviews.length === 0) {
     return next(new AppError("Reviews not found", 404));
@@ -45,8 +58,21 @@ const getAllBooksReviews = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     status: "success",
+    length: reviews,
     data: reviews,
   });
 });
 
-export { createReview, getAllBooksReviews };
+// update one specific Books review
+const updateReview = catchAsync(async (req, res, next) => {
+  const { bookId } = req.params;
+
+  const review = await Review.findOneAndUpdate({ book: bookId }, req.body);
+
+  res.status(200).json({
+    status: "success",
+    message: "review updated successfully",
+  });
+});
+
+export { createReview, getAllBooksReviews, getAllReviews, updateReview };
