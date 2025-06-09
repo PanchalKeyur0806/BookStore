@@ -46,7 +46,7 @@ const bookSchema = mongoose.Schema({
     type: String,
     required: [true, "Book must have a coverImage"],
   },
-  ratingAverate: {
+  ratingAverage: {
     type: Number,
     default: 0,
   },

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import Books from "./booksModel.js";
 
 const reviewSchema = mongoose.Schema(
   {
@@ -20,7 +21,7 @@ const reviewSchema = mongoose.Schema(
     rating: {
       type: Number,
       min: [1, "min 1 rating is required"],
-      max: [10, "max 10 rating is required"],
+      max: [5, "max 5 rating is required"],
       required: [true, "rating is required"],
     },
   },
@@ -41,6 +42,48 @@ reviewSchema.pre(/^find/, function (next) {
   });
 
   next();
+});
+
+// calculate average rating
+reviewSchema.statics.calcAvgRating = async function (bookId) {
+  console.log(this.rating);
+
+  const stats = await this.aggregate([
+    {
+      $match: { book: bookId },
+    },
+    {
+      $group: {
+        _id: "$book",
+        nRating: { $sum: 1 },
+        avgRating: { $avg: "$rating" },
+      },
+    },
+  ]);
+
+  if (stats) {
+    await Books.findByIdAndUpdate(bookId, {
+      ratingQuantity: stats[0].nRating,
+      ratingAverage: stats[0].avgRating,
+    });
+  } else {
+    await Books.findByIdAndUpdate(bookId, {
+      ratingQuantity: 0,
+      ratingAverage: 0,
+    });
+  }
+};
+
+// calculate average rating after the posting review
+reviewSchema.post("save", function () {
+  this.constructor.calcAvgRating(this.book);
+});
+
+// calculate average rating after updating the review
+reviewSchema.post(/^findOneAnd/, async function (doc) {
+  if (doc) {
+    await doc.constructor.calcAvgRating(doc.book._id);
+  }
 });
 
 const Review = mongoose.model("Review", reviewSchema);
