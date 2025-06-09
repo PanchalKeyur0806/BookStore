@@ -1,6 +1,7 @@
 import express from "express";
 import {
   createReview,
+  deleteReview,
   getAllBooksReviews,
   getAllReviews,
   updateReview,
@@ -15,7 +16,8 @@ routes
   .route("/")
   .get(getAllBooksReviews)
   .post(createReview)
-  .patch(updateReview);
+  .patch(updateReview)
+  .delete(deleteReview);
 
 routes.get("/allReviews", getAllReviews);
 

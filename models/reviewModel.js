@@ -46,8 +46,6 @@ reviewSchema.pre(/^find/, function (next) {
 
 // calculate average rating
 reviewSchema.statics.calcAvgRating = async function (bookId) {
-  console.log(this.rating);
-
   const stats = await this.aggregate([
     {
       $match: { book: bookId },
@@ -61,7 +59,7 @@ reviewSchema.statics.calcAvgRating = async function (bookId) {
     },
   ]);
 
-  if (stats) {
+  if (stats.length > 0) {
     await Books.findByIdAndUpdate(bookId, {
       ratingQuantity: stats[0].nRating,
       ratingAverage: stats[0].avgRating,

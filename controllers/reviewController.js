@@ -66,8 +66,16 @@ const getAllBooksReviews = catchAsync(async (req, res, next) => {
 // update one specific Books review
 const updateReview = catchAsync(async (req, res, next) => {
   const { bookId } = req.params;
+  const { id } = req.user;
 
-  const review = await Review.findOneAndUpdate({ book: bookId }, req.body);
+  if (!bookId) {
+    return next(new AppError("Book id not found", 404));
+  }
+
+  const review = await Review.findOneAndUpdate(
+    { book: bookId, user: id },
+    req.body
+  );
 
   res.status(200).json({
     status: "success",
@@ -75,4 +83,23 @@ const updateReview = catchAsync(async (req, res, next) => {
   });
 });
 
-export { createReview, getAllBooksReviews, getAllReviews, updateReview };
+// delete a review
+const deleteReview = catchAsync(async (req, res, next) => {
+  const { bookId } = req.params;
+  const { id } = req.user;
+
+  const review = await Review.findOneAndDelete({ book: bookId, user: id });
+
+  res.status(200).json({
+    status: "success",
+    message: "Review deleted successfully",
+  });
+});
+
+export {
+  createReview,
+  getAllBooksReviews,
+  getAllReviews,
+  updateReview,
+  deleteReview,
+};
