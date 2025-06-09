@@ -4,6 +4,7 @@ import {
   deleteReview,
   getAllBooksReviews,
   getAllReviews,
+  getOneReview,
   updateReview,
 } from "../controllers/reviewController.js";
 import { protect } from "../controllers/authController.js";
@@ -20,5 +21,7 @@ routes
   .delete(deleteReview);
 
 routes.get("/allReviews", getAllReviews);
+
+routes.get("/:bookId/me", getOneReview);
 
 export default routes;

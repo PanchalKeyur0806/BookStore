@@ -16,6 +16,24 @@ const getAllReviews = catchAsync(async (req, res, next) => {
   });
 });
 
+// get one specific review
+const getOneReview = catchAsync(async (req, res, next) => {
+  const { bookId } = req.params;
+  const { id } = req.user;
+
+  if (!bookId) {
+    return next(new AppError("Book id not found", 404));
+  }
+
+  const review = await Review.findOne({ book: bookId, user: id });
+
+  res.status(200).json({
+    status: "success",
+    message: "review found successfully",
+    data: review,
+  });
+});
+
 // create a review on books
 const createReview = catchAsync(async (req, res, next) => {
   const { review, rating } = req.body;
@@ -99,6 +117,7 @@ const deleteReview = catchAsync(async (req, res, next) => {
 export {
   createReview,
   getAllBooksReviews,
+  getOneReview,
   getAllReviews,
   updateReview,
   deleteReview,
