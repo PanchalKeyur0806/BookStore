@@ -222,4 +222,4 @@ const deactiveUser = catchAsync(async (req, res, next) => {
     data: user,
   });
 });
-export { getDashboard, getSalesAnalytics, deactiveUser };
+export { getDashboard, getSalesAnalytics, deactiveUser  };
