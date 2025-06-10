@@ -13,7 +13,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 // global error handler
 import errorHandler from "./controllers/errorController.js";
 
-import { webhook } from "./controllers/orderController.js";
+import { webhook } from "./controllers/paymentController.js";
 
 dotenv.config();
 

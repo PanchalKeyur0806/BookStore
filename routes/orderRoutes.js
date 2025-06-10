@@ -7,10 +7,11 @@ import {
   createCheckoutSession,
   refundPaymnet,
   success,
-} from "../controllers/orderController.js";
+} from "../controllers/paymentController.js";
 
 import { protect } from "../controllers/authController.js";
 import checkRefundStatus from "../middlewares/checkRefundStatus.js";
+import { getAllOrders, getOneOrder } from "../controllers/orderController.js";
 
 const routes = express.Router();
 
@@ -29,6 +30,10 @@ routes.get(
   checkRefundStatus,
   refundPaymnet
 );
+
+// order details
+routes.get("/allorders", getAllOrders);
+routes.get("/order/:orderId", getOneOrder);
 
 routes.get("/success", success);
 
