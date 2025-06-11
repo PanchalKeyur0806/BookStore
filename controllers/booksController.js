@@ -1,6 +1,7 @@
 import Books from "../models/booksModel.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import AppError from "../utils/AppError.js";
+import AppFeatures from "../utils/AppFeatures.js";
 
 // create books
 const createBooks = catchAsync(async (req, res, next) => {
@@ -33,8 +34,13 @@ const createBooks = catchAsync(async (req, res, next) => {
 
 // getAll the books
 const getAllBooks = catchAsync(async (req, res, next) => {
-  // find all books
-  const allBooks = await Books.find();
+  const features = new AppFeatures(Books.find(), req.query)
+    .filter()
+    .sort()
+    .limitFields()
+    .pagination();
+  const allBooks = await features.query;
+
   if (!allBooks || allBooks.length < 0) {
     return next(new AppError("Books not found", 404));
   }
