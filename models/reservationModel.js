@@ -6,11 +6,18 @@ const reservationModel = mongoose.Schema({
     ref: "User",
     required: [true, "User is required"],
   },
-  books: [
+  items: [
     {
-      type: mongoose.Schema.ObjectId,
-      ref: "Books",
-      required: [true, "Book is required"],
+      book: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Books",
+        required: true,
+      },
+      quantity: {
+        type: Number,
+        required: true,
+        min: 1,
+      },
     },
   ],
   totalQty: {
@@ -20,9 +27,12 @@ const reservationModel = mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
-    expires: 20,
+    expires: 60,
   },
 });
+
+reservationModel.index({ user: 1 });
+reservationModel.index({ expiresAt: 1 });
 
 const Reservation = mongoose.model("Reservation", reservationModel);
 

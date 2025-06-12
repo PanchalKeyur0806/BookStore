@@ -202,6 +202,76 @@ const webhook = catchAsync(async (req, res, next) => {
       }
       break;
 
+    case "checkout.session.expired":
+      try {
+        const session = event.data.object;
+        const customerEmail = session.customer_email;
+
+        if (customerEmail) {
+          const user = await User.findOne({ email: customerEmail });
+          if (user) {
+            const reservation = await Reservation.findOne({ user: user._id });
+
+            if (reservation) {
+              const cart = await Cart.findOne({ user: user._id });
+              if (cart) {
+                console.log(
+                  "Session is expired - reservation will be cleaned up"
+                );
+              }
+            }
+
+            await Reservation.findByIdAndDelete(reservation._id);
+            console.log("Reservation cleaned up for expired session ");
+          }
+        }
+      } catch (error) {
+        console.log("Error : - ", error);
+      }
+      break;
+
+    case "payment_intent.canceled":
+      try {
+        const paymentIntent = event.data.object;
+        let user = null;
+
+        if (paymentIntent.customer) {
+          const customer = await stripe.customers.retrieve(
+            paymentIntent.customer
+          );
+
+          user = await User.findOne({ user: user.email });
+        } else if (paymentIntent.receipt_email) {
+          user = await User.findOne({ email: paymentIntent.receipt_email });
+        }
+
+        if (user) {
+          const reservation = await Reservation.findOne({ user: user._id });
+
+          if (reservation) {
+            await Reservation.findByIdAndDelete(reservation._id);
+            console.log(
+              "Reservation cleaned up for canceled payment:",
+              reservation._id
+            );
+          }
+        }
+        if (customerEmail) {
+          const user = await User.findOne({ email: customerEmail });
+          if (user) {
+            const reservation = await Reservation.findOne({ user: user._id });
+
+            if (reservation) {
+              await Reservation.findOneAndDelete(reservation._id);
+              console.log("Reservation deleted");
+            }
+          }
+        }
+      } catch (error) {
+        console.log("Error : ", error);
+      }
+      break;
+
     case "charge.refunded":
       const charge = event.data.object;
       const paymentId = charge.payment_intent;

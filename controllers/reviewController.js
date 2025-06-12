@@ -2,11 +2,17 @@ import mongoose, { startSession } from "mongoose";
 import Books from "../models/booksModel.js";
 import Review from "../models/reviewModel.js";
 import AppError from "../utils/AppError.js";
+import AppFeatures from "../utils/AppFeatures.js";
 import { catchAsync } from "../utils/catchAsync.js";
 
 // get all the reviews
 const getAllReviews = catchAsync(async (req, res, next) => {
-  const reviews = await Review.find();
+  const features = new AppFeatures(Review.find(), req.query)
+    .filter()
+    .sort()
+    .limitFields()
+    .pagination();
+  const reviews = await features.query;
 
   res.status(200).json({
     status: "success",

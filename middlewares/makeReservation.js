@@ -15,6 +15,13 @@ const makeReservation = catchAsync(async (req, res, next) => {
   if (!user) return next(new AppError("User not found", 404));
   if (!cart) return next(new AppError("Cart not found", 404));
 
+  const existingReservation = await Reservation.findOne({ user: user._id });
+  if (existingReservation) {
+    await Reservation.findByIdAndDelete(existingReservation._id);
+
+    console.log("Reservation deleted");
+  }
+
   //   get the book ids
   const bookIds = cart.items.map((item) => item.book);
 
