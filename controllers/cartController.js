@@ -1,7 +1,43 @@
+import client from "../config/redisClient.js";
+
 import Cart from "../models/cartModel.js";
 import Books from "../models/booksModel.js";
 import AppError from "../utils/AppError.js";
 import { catchAsync } from "../utils/catchAsync.js";
+
+// get cart
+const getCart = catchAsync(async (req, res, next) => {
+  const userId = req.user.id;
+
+  // check that users cart is exist or not
+  // if yes then return the response
+
+  const cartData = await client.get(`user:${userId}:cart`);
+  if (!cartData) {
+    const getCart = await Cart.findOne({ user: userId });
+
+    // save it to redis
+    const cartData = await client.set(
+      `user:${userId}:cart`,
+      JSON.stringify(getCart)
+    );
+
+    // give response to user
+    return res.status(200).json({
+      status: "success",
+      data: getCart,
+    });
+  }
+
+  // else search on mongodb
+  // and return the response
+
+  res.status(200).json({
+    status: "success",
+    message: "cart is found",
+    data: JSON.parse(cartData),
+  });
+});
 
 // add to cart functionality
 
@@ -83,8 +119,9 @@ const addToCart = catchAsync(async (req, res, next) => {
     }
   }
 
-  //   save cart to Db
+  //   save cart to Db and redis
   await cart.save();
+  await client.set(`user:${userId}:cart`, JSON.stringify(cart));
 
   //   return the response
   res.status(200).json({
@@ -96,6 +133,7 @@ const addToCart = catchAsync(async (req, res, next) => {
 
 // remove specific item from the cart
 const removeBookFromCart = catchAsync(async (req, res, next) => {
+  const userId = req.user.id;
   const { bookId } = req.params;
   //   get the book id from the book
   const { id } = req.user;
@@ -142,6 +180,7 @@ const removeBookFromCart = catchAsync(async (req, res, next) => {
 
   //   save the cart
   await findExistingCart.save();
+  await client.set(`user:${userId}:cart`, JSON.stringify(findExistingCart));
 
   //   return the response
   res.status(200).json({
@@ -151,4 +190,4 @@ const removeBookFromCart = catchAsync(async (req, res, next) => {
   });
 });
 
-export { addToCart, removeBookFromCart };
+export { addToCart, removeBookFromCart, getCart };
