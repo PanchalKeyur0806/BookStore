@@ -4,6 +4,7 @@ import Review from "../models/reviewModel.js";
 import AppError from "../utils/AppError.js";
 import AppFeatures from "../utils/AppFeatures.js";
 import { catchAsync } from "../utils/catchAsync.js";
+import client from "../config/redisClient.js";
 
 // get all the reviews
 const getAllReviews = catchAsync(async (req, res, next) => {
@@ -31,12 +32,25 @@ const getOneReview = catchAsync(async (req, res, next) => {
     return next(new AppError("Book id not found", 404));
   }
 
-  const review = await Review.findOne({ book: bookId, user: id });
+  const reviewData = await client.get(`user:${id}:book:${bookId}`);
+  if (!reviewData) {
+    const review = await Review.findOne({ book: bookId, user: id });
+    if (!review) {
+      return next(new AppError("Review not found", 404));
+    }
+
+    await client.set(`user:${id}:book:${bookId}`, JSON.stringify(review));
+
+    return res.status(200).json({
+      status: "success",
+      data: review,
+    });
+  }
 
   res.status(200).json({
     status: "success",
     message: "review found successfully",
-    data: review,
+    data: JSON.parse(reviewData),
   });
 });
 
@@ -100,6 +114,8 @@ const updateReview = catchAsync(async (req, res, next) => {
     { book: bookId, user: id },
     req.body
   );
+
+  await client.set(`user:${id}:book:${bookId}`);
 
   res.status(200).json({
     status: "success",
