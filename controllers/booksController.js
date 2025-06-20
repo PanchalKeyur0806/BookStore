@@ -2,6 +2,7 @@ import Books from "../models/booksModel.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import AppError from "../utils/AppError.js";
 import AppFeatures from "../utils/AppFeatures.js";
+import client from "../config/redisClient.js";
 
 // create books
 const createBooks = catchAsync(async (req, res, next) => {
@@ -57,23 +58,39 @@ const getAllBooks = catchAsync(async (req, res, next) => {
 // get specific books
 const getOneBook = catchAsync(async (req, res, next) => {
   const { bookId } = req.params;
-  if (!bookId || typeof bookId !== "string") {
-    return next(
-      new AppError("Book id not found, please provide bookId in params", 400)
-    );
-  }
 
-  //   find the book
-  const findBook = await Books.findById(bookId);
-  if (!findBook) {
-    return next(new AppError("Book not found", 404));
+  // check that book is exist in redis
+  // if yes then return the response
+  // else search in mongodb and save it to Redis
+
+  const bookKey = await client.get(`book:${bookId}`);
+
+  if (!bookKey) {
+    if (!bookId || typeof bookId !== "string") {
+      return next(
+        new AppError("Book id not found, please provide bookId in params", 400)
+      );
+    }
+
+    //   find the book
+    const findBook = await Books.findById(bookId);
+    if (!findBook) {
+      return next(new AppError("Book not found", 404));
+    }
+    await client.set(`book:${bookId}`, JSON.stringify(findBook));
+
+    return res.status(200).json({
+      status: "success",
+      message: "Book is found",
+      data: findBook,
+    });
   }
 
   //   return the response
   res.status(200).json({
     status: "success",
     message: "Book is found",
-    data: findBook,
+    data: JSON.parse(bookKey),
   });
 });
 
@@ -90,6 +107,8 @@ const updateBook = catchAsync(async (req, res, next) => {
   if (!updateBook) {
     return next(new AppError("Book not found", 400));
   }
+
+  await client.set(`book:${bookId}`, JSON.stringify(updateBook));
 
   res.status(200).json({
     status: "success",
