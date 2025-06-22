@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 import mongoose from "mongoose";
+import { emailQueue } from "../queues/emailQueue.js";
 import { Worker } from "bullmq";
-import client from "../config/redisClient.js";
 
 import Books from "../models/booksModel.js";
 import User from "../models/userModel.js";
@@ -74,6 +74,13 @@ const worker = new Worker(
         await Books.bulkWrite(bulkOps);
         console.log("update the all book total sales");
       }
+
+      // send email to client
+      await emailQueue.add("email-queue", {
+        status: "success",
+        statusCode: 200,
+        data: order,
+      });
 
       // delete the cart and reservation
       await Cart.findByIdAndDelete(cart._id);
