@@ -1,3 +1,5 @@
+import { json } from "express";
+
 class AppFeatures {
   constructor(query, queryString) {
     this.query = query;
@@ -10,11 +12,29 @@ class AppFeatures {
 
     excludedFields.forEach((ele) => delete queryObj[ele]);
 
-    let queryStr = JSON.stringify(queryObj);
-    queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (match) => `$${match}`);
-    queryStr = JSON.parse(queryStr);
+    const transformedQuery = {};
+    for (const key in queryObj) {
+      const operatorMatch = key.match(/^(.+)\[(gte|gt|lte|lt)\]$/);
 
-    this.query = this.query.find(queryStr);
+      if (operatorMatch) {
+        const field = operatorMatch[1];
+        const operator = operatorMatch[2];
+        const value = isNaN(queryObj[key])
+          ? queryObj[key]
+          : Number(queryObj[key]);
+
+        if (!transformedQuery[field]) {
+          transformedQuery[field] = {};
+        }
+
+        transformedQuery[field][`$${operator}`] = value;
+      } else {
+        // Regular field without operators
+        transformedQuery[key] = queryObj[key];
+      }
+    }
+
+    this.query = this.query.find(transformedQuery);
 
     return this;
   }
