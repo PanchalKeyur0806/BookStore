@@ -76,11 +76,17 @@ const worker = new Worker(
       }
 
       // send email to client
-      await emailQueue.add("email-queue", {
-        status: "success",
-        statusCode: 200,
-        data: order,
-      });
+      await emailQueue.add(
+        "email-queue",
+        {
+          status: "success",
+          statusCode: 200,
+          data: order,
+        },
+        {
+          attempts: 3,
+        }
+      );
 
       // delete the cart and reservation
       await Cart.findByIdAndDelete(cart._id);

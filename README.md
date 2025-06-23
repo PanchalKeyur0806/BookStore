@@ -79,11 +79,9 @@ BookStore/
 
 1. install docker on your computer
 2. check that docker is properly installed or not
-3. then run this command to install redis
+3. then run this command to install redis <br>
    docker run -d --name redis -p 6379:6379 redis<br>
    **Note:- make sure that docker is running on background**
-4. connect redis with cli
-   $ docker exec -it redis redis-cli
 
 #### How to run the project
 
@@ -95,3 +93,9 @@ BookStore/
    cd workers<br>
    node emailWorker.js<br>
    node orderWorker.js
+
+## NOTE :- If you have any error message while setups the project, feel free to contact me on gmail
+
+## And also this is development project not an production level project
+
+gmail id :- panchalkeyur694@gmail.com
