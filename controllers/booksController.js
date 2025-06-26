@@ -1,3 +1,17 @@
+import fs from "fs/promises";
+import dotenv from "dotenv";
+dotenv.config({ path: ".env" });
+
+import multer from "multer";
+import { v2 as cloudinary } from "cloudinary";
+
+// configuration of cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
 import Books from "../models/booksModel.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import AppError from "../utils/AppError.js";
@@ -6,8 +20,17 @@ import client from "../config/redisClient.js";
 
 // create books
 const createBooks = catchAsync(async (req, res, next) => {
+  const filePath = req.file.path;
   const { title, author, stock, description, price, category, coverImage } =
     req.body;
+
+  // store images in cloudinary
+  const result = await cloudinary.uploader.upload(filePath, {
+    folder: "BookStore",
+  });
+
+  // delete local tem file
+  await fs.unlink(filePath);
 
   // create the books
   const createBook = await Books.create({
@@ -17,7 +40,7 @@ const createBooks = catchAsync(async (req, res, next) => {
     description,
     price,
     category,
-    coverImage,
+    coverImage: result.secure_url,
   });
   if (!createBook || (createBook === undefined && createBook === null)) {
     return next(

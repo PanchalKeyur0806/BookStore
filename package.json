@@ -14,11 +14,13 @@
   "dependencies": {
     "bcrypt": "^6.0.0",
     "bullmq": "^5.55.0",
+    "cloudinary": "^2.7.0",
     "express": "^5.1.0",
     "express-validator": "^7.2.1",
     "ioredis": "^5.6.1",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.15.0",
+    "multer": "^2.0.1",
     "nodemailer": "^7.0.3",
     "otp-generator": "^4.0.1",
     "stripe": "^18.2.0"

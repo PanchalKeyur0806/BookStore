@@ -1,5 +1,6 @@
 import express from "express";
 
+import uploads from "../config/multerConfig.js";
 import reviewRoutes from "../routes/reviewRoutes.js";
 import {
   createBooks,
@@ -14,7 +15,10 @@ const router = express.Router();
 
 router.use("/:bookId/review", reviewRoutes);
 
-router.route("/").get(getAllBooks).post(validateBooks, createBooks);
+router
+  .route("/")
+  .get(getAllBooks)
+  .post(uploads.single("coverImage"), validateBooks, createBooks);
 
 router.route("/:bookId").get(getOneBook).patch(updateBook).delete(deleteBook);
 

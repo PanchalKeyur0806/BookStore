@@ -3,10 +3,11 @@ import AppError from "../utils/AppError.js";
 
 export const validateBooks = [
   body("title")
-    .isString()
-    .withMessage("please enter correct book name")
+    .trim()
     .notEmpty()
-    .withMessage("please enter book name"),
+    .withMessage("please enter book name")
+    .isLength({ min: 2 })
+    .withMessage("please enter correct book name"),
 
   body("author")
     .isString()
@@ -49,12 +50,6 @@ export const validateBooks = [
     .withMessage("please provide category according to list")
     .notEmpty()
     .withMessage("address field should not be empty"),
-
-  body("coverImage")
-    .isString()
-    .withMessage("please enter correct coverImage")
-    .notEmpty()
-    .withMessage("coverImage should not be empty"),
 
   (req, res, next) => {
     const errors = validationResult(req);
