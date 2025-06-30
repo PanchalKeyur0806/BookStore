@@ -66,6 +66,9 @@ BookStore/
 
     STRIPE_SECRET_KEY=your stripe secret key from stripe website
     STRIPE_WEBHOOK=your stripe webhook key
+    CLOUDINARY_NAME=your cloudinary name
+    CLOUDINARY_API_KEY=your cloudinary key
+    CLOUDINARY_API_SECRET=your cloudinary secret key
 
 **Note :- in order to get gmail app passoword you need to do following things**
 
@@ -82,6 +85,12 @@ BookStore/
 3. then run this command to install redis <br>
    docker run -d --name redis -p 6379:6379 redis<br>
    **Note:- make sure that docker is running on background**
+
+**How to setup cloudinary**
+
+1. Go to cloudinary website and make a account
+2. Go to dashboard, copy your cloud name and past it in a env variable
+3. Click on "go to api keys" button in dashboard and copy "api key" and "api secret" and past them in a env variable
 
 #### How to run the project
 
