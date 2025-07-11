@@ -1,0 +1,47 @@
+version: "3.9"
+services:
+  backendapp:
+    container_name: backendapp
+    build:
+      context: ./
+    ports:
+      - "8003:8002"
+    env_file:
+      - .env
+    depends_on:
+      - mongo
+      - redis
+
+  worker1:
+    build:
+      context: ./
+    container_name: emailWorker
+    command: ["node", "workers/emailWorker.js"]
+    depends_on:
+      - mongo
+      - redis
+
+  worker2:
+    build:
+      context: ./
+    container_name: orderWorker
+    command: ["node", "workers/orderWorker.js"]
+    depends_on:
+      - mongo
+      - redis
+  mongo:
+    container_name: mongo
+    image: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    container_name: redis
+    image: redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  mongo_data:

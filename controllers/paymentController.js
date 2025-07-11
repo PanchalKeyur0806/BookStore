@@ -9,7 +9,7 @@ import User from "../models/userModel.js";
 import Reservation from "../models/reservationModel.js";
 import Order from "../models/orderModel.js";
 
-import catchAsync from "../../urlshortener/utils/catchAsync.js";
+import { catchAsync } from "../utils/catchAsync.js";
 import AppError from "../utils/AppError.js";
 
 dotenv.config();
