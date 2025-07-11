@@ -8,6 +8,7 @@ import { catchAsync } from "../utils/catchAsync.js";
 // get cart
 const getCart = catchAsync(async (req, res, next) => {
   const userId = req.user.id;
+  console.log("User id is :-", userId);
 
   // check that users cart is exist or not
   // if yes then return the response

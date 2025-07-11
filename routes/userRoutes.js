@@ -9,13 +9,14 @@ import {
   updateUserInfo,
   userFavBooks,
 } from "../controllers/userController.js";
+import restrictTo from "../middlewares/protect.js";
 
 const router = express.Router();
 
 router.use(protect);
 
-router.get("/getAllOrders", getUserOrders);
-router.get("/allusers", allUser);
+router.get("/getAllOrders", restrictTo("user"), getUserOrders);
+router.get("/allusers", restrictTo("admin"), allUser);
 router.post("/favBooks", userFavBooks);
 router.get("/me", protect, me);
 router.patch("/updateMe", protect, updateUserInfo);

@@ -1,5 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
+import cors from "cors";
 
 // all routes
 import authRoutes from "./routes/authRoutes.js";
@@ -23,6 +24,7 @@ const app = express();
 app.post("/webhook", express.raw({ type: "application/json" }), webhook);
 
 app.use(express.json());
+app.use(cors());
 
 app.use("/auth", authRoutes);
 app.use("/users", userRoutes);

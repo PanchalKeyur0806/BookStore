@@ -15,6 +15,7 @@
     "bcrypt": "^6.0.0",
     "bullmq": "^5.55.0",
     "cloudinary": "^2.7.0",
+    "cors": "^2.8.5",
     "express": "^5.1.0",
     "express-validator": "^7.2.1",
     "ioredis": "^5.6.1",

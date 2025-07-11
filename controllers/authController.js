@@ -296,7 +296,7 @@ const protect = catchAsync(async (req, res, next) => {
       );
     }
 
-    req.user = decode;
+    req.user = findUser;
   } else {
     return next(new AppError("Token not found please register first", 400));
   }

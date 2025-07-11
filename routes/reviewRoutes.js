@@ -9,19 +9,21 @@ import {
 } from "../controllers/reviewController.js";
 import { protect } from "../controllers/authController.js";
 import { updateBook } from "../controllers/booksController.js";
+import restrictTo from "../middlewares/protect.js";
 
 const routes = express.Router({ mergeParams: true });
 
 routes.use(protect);
+
 routes
   .route("/")
   .get(getAllBooksReviews)
-  .post(createReview)
-  .patch(updateReview)
-  .delete(deleteReview);
+  .post(restrictTo("user"), createReview)
+  .patch(restrictTo("user"), updateReview)
+  .delete(restrictTo("user"), deleteReview);
 
-routes.get("/allReviews", getAllReviews);
+routes.get("/allReviews", restrictTo("admin"), getAllReviews);
 
-routes.get("/:bookId/me", getOneReview);
+routes.get("/:bookId/me", restrictTo("user"), getOneReview);
 
 export default routes;
