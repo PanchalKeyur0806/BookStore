@@ -1,110 +1,142 @@
 # 📚 BookStore API – Node.js Backend
 
-A full-featured eCommerce-style backend built with **Node.js**, **Express**, and **MongoDB**, designed using the **MVC architecture**. It includes authentication, payments, order management, analytics, Redis caching, and more — ideal for developers building scalable eCommerce apps or learning production-grade backend patterns.
+A production-grade, eCommerce-style backend built with **Node.js**, **Express**, and **MongoDB**, designed using the **MVC architecture**. It features authentication, payments, order processing, analytics, caching, and more — ideal for developers building scalable, real-world applications.
+
+---
+
+## 📄 API Documentation
+
+📎 [View Postman Documentation](https://documenter.getpostman.com/view/40726492/2sB34hFf8z)
 
 ---
 
 ## 🚀 Features
 
-✅ User & Admin Authentication (JWT)  
-✅ OTP Email Verification via Nodemailer  
-✅ CRUD operations for Books  
-✅ Book Reviews by Users  
-✅ Advanced Filtering, Searching, Sorting, Pagination  
-✅ Stripe Payment Gateway Integration  
-✅ Payment Cancelation Support  
-✅ Invoice Generator on Successful Orders (PDF)  
-✅ Admin Dashboard with:
-
-- 📈 Sales Analytics
-- 📦 Inventory Management
-
-✅ Redis Caching for Performance  
-✅ BullMQ Queue System for Order Processing  
-✅ Role-Based Access Control  
-✅ MVC Folder Structure  
-✅ Secure Environment Config & Error Handling
+- ✅ JWT-based User & Admin Authentication
+- ✅ Email OTP Verification via Nodemailer
+- ✅ Full CRUD for Books
+- ✅ Book Review System
+- ✅ Advanced Filtering, Search, Sorting, and Pagination
+- ✅ Stripe Payment Integration with Cancellation Support
+- ✅ Auto-generated PDF Invoices
+- ✅ Admin Dashboard with:
+  - 📈 Sales Analytics
+  - 📦 Inventory Management
+- ✅ Redis Caching for High Performance
+- ✅ BullMQ Queue System for Order Processing
+- ✅ Role-Based Access Control (RBAC)
+- ✅ Clean MVC Project Structure
+- ✅ Secure Config Management & Error Handling
 
 ---
 
-## 📁 Folder Structure
+## 📁 Project Structure
 
+```
 BookStore/
-├── controllers/<br>
-├── routes/<br>
-├── models/<br>
-├── middlewares/<br>
-├── utils/<br>
-├── config/<br>
-├── queues/<br>
-├── workers/<br>
-├── services/<br>
-├── .env<br>
-├── server.js<br>
+├── controllers/
+├── routes/
+├── models/
+├── middlewares/
+├── utils/
+├── config/
+├── queues/
+├── workers/
+├── services/
+├── .env
+├── server.js
 └── README.md
+```
 
-## How to install & setup the project
+---
 
-#### clone our repository
+## 🛠️ Installation & Setup
 
-    git clone https://github.com/PanchalKeyur0806/BookStore.git
-    cd BookStore
-    npm install
+### 1️⃣ Clone the repository
 
-#### Edit environment variables
+```bash
+git clone https://github.com/PanchalKeyur0806/BookStore.git
+cd BookStore
+npm install
+```
 
-    in BookStore folder create .env file and add following property
+### 2️⃣ Setup Environment Variables
 
-    PORT=your port number
-    DB_STRING=your db string
+Create a `.env` file in the root folder and add the following:
 
-    JWT_SECRET_KEY=your jwt secret key
-    JWT_EXPIRES=your jwt expiry key
+```env
+PORT=5000
+DB_STRING=your_mongodb_connection_string
 
-    USER_EMAIL=your email
-    GMAIL_APP_PASSWORD=your passowrd
+JWT_SECRET_KEY=your_jwt_secret
+JWT_EXPIRES=your_jwt_expiry_time
 
-    STRIPE_SECRET_KEY=your stripe secret key from stripe website
-    STRIPE_WEBHOOK=your stripe webhook key
-    CLOUDINARY_NAME=your cloudinary name
-    CLOUDINARY_API_KEY=your cloudinary key
-    CLOUDINARY_API_SECRET=your cloudinary secret key
+USER_EMAIL=your_email
+GMAIL_APP_PASSWORD=your_gmail_app_password
 
-**Note :- in order to get gmail app passoword you need to do following things**
+STRIPE_SECRET_KEY=your_stripe_secret_key
+STRIPE_WEBHOOK=your_stripe_webhook_secret
 
-1. go to google account settings
-2. search for App Passwords and click on it
-3. and create your app name
-4. after clicking you will see something like this :- **fkak djir ubyo hyxz**
-5. paste this text in **GMAIL_APP_PASSWORD** field
+CLOUDINARY_NAME=your_cloudinary_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+```
 
-**How to setup Redis**
+### 🔑 Getting a Gmail App Password
 
-1. install docker on your computer
-2. check that docker is properly installed or not
-3. then run this command to install redis <br>
-   docker run -d --name redis -p 6379:6379 redis<br>
-   **Note:- make sure that docker is running on background**
+1. Go to your [Google Account Settings](https://myaccount.google.com/)
+2. Search for **App Passwords** and open the section
+3. Generate a new app password
+4. Copy and paste the password into the `.env` under `GMAIL_APP_PASSWORD`
 
-**How to setup cloudinary**
+---
 
-1. Go to cloudinary website and make a account
-2. Go to dashboard, copy your cloud name and past it in a env variable
-3. Click on "go to api keys" button in dashboard and copy "api key" and "api secret" and past them in a env variable
+## 🧱 Redis Setup (using Docker)
 
-#### How to run the project
+1. Install Docker on your machine
+2. Make sure Docker is running in the background
+3. Run Redis using:
 
-1. in base dir run this command <br>
-   npm run dev
-2. run two workers in another terminal,
-   go to workers folder and
-   run these two command in the terminal <br>
-   cd workers<br>
-   node emailWorker.js<br>
-   node orderWorker.js
+```bash
+docker run -d --name redis -p 6379:6379 redis
+```
 
-## NOTE :- If you have any error message while setups the project, feel free to contact me on gmail
+---
 
-## And also this is development project not an production level project
+## ☁️ Cloudinary Setup
 
-gmail id :- panchalkeyur694@gmail.com
+1. Sign up at [Cloudinary](https://cloudinary.com/)
+2. Go to your dashboard and copy:
+   - Cloud Name → `CLOUDINARY_NAME`
+   - API Key → `CLOUDINARY_API_KEY`
+   - API Secret → `CLOUDINARY_API_SECRET`
+3. Paste them into your `.env` file
+
+---
+
+## ▶️ Running the Project
+
+### Development Server
+
+```bash
+npm run dev
+```
+
+### Run Workers for Queued Jobs
+
+Open a separate terminal:
+
+```bash
+cd workers
+node emailWorker.js
+node orderWorker.js
+```
+
+---
+
+## ⚠️ Notes
+
+- This project is in **active development** and is not intended for production use.
+- For any issues or errors during setup, feel free to reach out via email.
+
+📧 **Contact:** panchalkeyur694@gmail.com

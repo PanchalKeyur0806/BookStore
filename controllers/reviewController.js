@@ -115,8 +115,6 @@ const updateReview = catchAsync(async (req, res, next) => {
     req.body
   );
 
-  await client.set(`user:${id}:book:${bookId}`);
-
   res.status(200).json({
     status: "success",
     message: "review updated successfully",

@@ -35,8 +35,13 @@ routes.get(
 );
 
 // order details
-routes.get("/allorders", restrictTo("admin"), getAllOrders);
-routes.get("/order/:orderId", restrictTo("user", "admin"), getOneOrder);
+routes.get("/allorders", protect, restrictTo("admin"), getAllOrders);
+routes.get(
+  "/order/:orderId",
+  protect,
+  restrictTo("user", "admin"),
+  getOneOrder
+);
 
 routes.get("/success", success);
 
