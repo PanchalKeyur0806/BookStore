@@ -9,8 +9,6 @@ import Cart from "../models/cartModel.js";
 import Reservation from "../models/reservationModel.js";
 import Order from "../models/orderModel.js";
 
-dotenv.config({ path: "../.env" });
-
 mongoose
   .connect(process.env.DB_STRING)
   .then(() => {
@@ -98,8 +96,8 @@ const worker = new Worker(
   },
   {
     connection: {
-      host: "127.0.0.1",
-      port: "6379",
+      host: process.env.REDIS_HOST,
+      port: parseInt(process.env.REDIS_PORT) || 6379,
     },
   }
 );

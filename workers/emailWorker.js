@@ -2,8 +2,6 @@ import dotenv from "dotenv";
 import { Worker } from "bullmq";
 import sendEmail from "../utils/nodemailer.js";
 
-dotenv.config({ path: "../.env" });
-
 const emailWorker = new Worker(
   "email-queue",
   async (job) => {
@@ -21,8 +19,8 @@ const emailWorker = new Worker(
   },
   {
     connection: {
-      host: "127.0.0.1",
-      port: "6379",
+      host: process.env.REDIS_HOST,
+      port: parseInt(process.env.REDIS_PORT) || 6379,
     },
   }
 );

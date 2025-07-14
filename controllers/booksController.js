@@ -126,7 +126,25 @@ const updateBook = catchAsync(async (req, res, next) => {
     );
   }
 
-  const updateBook = await Books.findByIdAndUpdate(bookId, req.body);
+  let imageUrl;
+  if (req.file) {
+    const filePath = req.file.path;
+
+    // store images in cloudinary
+    const result = await cloudinary.uploader.upload(filePath, {
+      folder: "BookStore",
+    });
+
+    // delete local tem file
+    await fs.unlink(filePath);
+
+    imageUrl = result.secure_url;
+  }
+
+  const updateBook = await Books.findByIdAndUpdate(bookId, {
+    ...req.body,
+    ...(imageUrl && { coverImage: imageUrl }),
+  });
   if (!updateBook) {
     return next(new AppError("Book not found", 400));
   }

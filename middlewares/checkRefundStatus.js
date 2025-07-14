@@ -1,8 +1,7 @@
 import Order from "../models/orderModel.js";
 
 import AppError from "../utils/AppError.js";
-import catchAsync from "../../urlshortener/utils/catchAsync.js";
-import { check } from "express-validator";
+import { catchAsync } from "../utils/catchAsync.js";
 
 const checkRefundStatus = catchAsync(async (req, res, next) => {
   const { stripePaymentId } = req.params;

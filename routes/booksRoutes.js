@@ -25,7 +25,7 @@ router
 router
   .route("/:bookId")
   .get(getOneBook)
-  .patch(restrictTo("admin"), updateBook)
-  .delete(restrictTo("admin"), deleteBook);
+  .patch(uploads.single("coverImage"), protect, restrictTo("admin"), updateBook)
+  .delete(protect, restrictTo("admin"), deleteBook);
 
 export default router;
