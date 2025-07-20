@@ -168,7 +168,11 @@ const deleteBook = catchAsync(async (req, res, next) => {
   }
 
   //   delete the book
-  const removeBook = await Books.findByIdAndDelete(bookId);
+  const removeBook = await Books.findByIdAndUpdate(
+    bookId,
+    { isDeleted: true },
+    { new: true }
+  );
   if (!removeBook) {
     return next(new AppError("Book not found", 404));
   }

@@ -9,6 +9,8 @@ import Cart from "../models/cartModel.js";
 import Reservation from "../models/reservationModel.js";
 import Order from "../models/orderModel.js";
 
+dotenv.config({path: "../.env"})
+
 mongoose
   .connect(process.env.DB_STRING)
   .then(() => {

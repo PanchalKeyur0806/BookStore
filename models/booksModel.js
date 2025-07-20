@@ -58,6 +58,18 @@ const bookSchema = mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  isDeleted: {
+    type: Boolean,
+    default: false,
+  },
+});
+
+bookSchema.pre(/^find/, function (next) {
+  console.log("This middleware hit");
+
+  this.find({ isDeleted: false });
+
+  next();
 });
 
 const Books = mongoose.model("Books", bookSchema);
