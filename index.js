@@ -10,6 +10,7 @@ import cartRoutes from "./routes/cartRoute.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import wishlistRoutes from "./routes/wishlistRoute.js";
 
 // global error handler
 import errorHandler from "./controllers/errorController.js";
@@ -34,6 +35,7 @@ app.use("/orders", orderRoutes);
 app.use("/orders", orderRoutes);
 app.use("/reviews", reviewRoutes);
 app.use("/admin", adminRoutes);
+app.use("/wishlist", wishlistRoutes);
 app.use(errorHandler);
 
 export default app;
