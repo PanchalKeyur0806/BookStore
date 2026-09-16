@@ -16,7 +16,9 @@
     "bullmq": "^5.55.0",
     "cloudinary": "^2.7.0",
     "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
     "express": "^5.1.0",
+    "express-rate-limit": "^8.7.0",
     "express-validator": "^7.2.1",
     "ioredis": "^5.6.1",
     "jsonwebtoken": "^9.0.2",
@@ -28,7 +30,6 @@
   },
   "devDependencies": {
     "@faker-js/faker": "^9.9.0",
-    "dotenv": "^16.5.0",
     "nodemon": "^3.1.10"
   }
 }
