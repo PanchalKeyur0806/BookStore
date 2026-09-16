@@ -13,7 +13,11 @@ import {
 import { validateRegister } from "../middlewares/validateRegister.js";
 import { validateLogin } from "../middlewares/validateLogin.js";
 
+import { authRateLimiter } from "../middlewares/ratelimiter.js";
+
 const router = express.Router();
+
+router.use(authRateLimiter);
 
 router.post("/verifyOtp", verifyOtp);
 router.post("/resendOtp", resendOtp);

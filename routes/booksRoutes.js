@@ -13,19 +13,36 @@ import { validateBooks } from "../middlewares/validateBooks.js";
 import restrictTo from "../middlewares/protect.js";
 import { protect } from "../controllers/authController.js";
 
+import {
+  getRateLimiter,
+  mutationLimiter,
+  generalRateLimiter,
+} from "../middlewares/ratelimiter.js";
+
 const router = express.Router();
 
 router.use("/:bookId/review", reviewRoutes);
 
 router
   .route("/")
-  .get(getAllBooks)
-  .post(uploads.single("coverImage"), validateBooks, createBooks);
+  .get(getRateLimiter, getAllBooks)
+  .post(
+    mutationLimiter,
+    uploads.single("coverImage"),
+    validateBooks,
+    createBooks,
+  );
 
 router
   .route("/:bookId")
-  .get(getOneBook)
-  .patch(uploads.single("coverImage"), protect, restrictTo("admin"), updateBook)
-  .delete(protect, restrictTo("admin"), deleteBook);
+  .get(getRateLimiter, getOneBook)
+  .patch(
+    mutationLimiter,
+    uploads.single("coverImage"),
+    protect,
+    restrictTo("admin"),
+    updateBook,
+  )
+  .delete(protect, generalRateLimiter, restrictTo("admin"), deleteBook);
 
 export default router;

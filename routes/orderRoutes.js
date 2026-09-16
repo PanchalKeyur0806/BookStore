@@ -14,33 +14,43 @@ import checkRefundStatus from "../middlewares/checkRefundStatus.js";
 import { getAllOrders, getOneOrder } from "../controllers/orderController.js";
 import restrictTo from "../middlewares/protect.js";
 
+import { getRateLimiter, mutationLimiter } from "../middlewares/ratelimiter.js";
+
 const routes = express.Router();
 
 routes.post(
   "/createcheckoutsession",
+  mutationLimiter,
   protect,
   restrictTo("user"),
   makeReservation,
-  createCheckoutSession
+  createCheckoutSession,
 );
 
-routes.get("/getInvoices", protect, createAndSendInvoices);
+routes.get("/getInvoices", getRateLimiter, protect, createAndSendInvoices);
 
 routes.get(
   "/refundPayment/:stripePaymentId",
   protect,
   restrictTo("user"),
   checkRefundStatus,
-  refundPaymnet
+  refundPaymnet,
 );
 
 // order details
-routes.get("/allorders", protect, restrictTo("admin"), getAllOrders);
+routes.get(
+  "/allorders",
+  getRateLimiter,
+  protect,
+  restrictTo("admin"),
+  getAllOrders,
+);
 routes.get(
   "/order/:orderId",
+  getRateLimiter,
   protect,
   restrictTo("user", "admin"),
-  getOneOrder
+  getOneOrder,
 );
 
 routes.get("/success", success);

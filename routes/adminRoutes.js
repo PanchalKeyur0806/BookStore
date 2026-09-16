@@ -7,12 +7,15 @@ import {
 import restrictTo from "../middlewares/protect.js";
 import { protect } from "../controllers/authController.js";
 
+import { getRateLimiter } from "../middlewares/ratelimiter.js";
+
 const routes = express.Router();
 
 routes.use(protect);
 routes.use(restrictTo("admin"));
 
-routes.get("/getDashboard", getDashboard);
-routes.get("/getSalesAnalytics", getSalesAnalytics);
-routes.get("/deactivateUser", deactiveUser);
+routes.get("/getDashboard", getRateLimiter, getDashboard);
+routes.get("/getSalesAnalytics", getRateLimiter, getSalesAnalytics);
+routes.get("/deactivateUser", getRateLimiter, deactiveUser);
+
 export default routes;

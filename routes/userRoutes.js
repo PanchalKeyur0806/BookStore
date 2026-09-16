@@ -11,15 +11,18 @@ import {
 } from "../controllers/userController.js";
 import restrictTo from "../middlewares/protect.js";
 
+// importing ratelimiting
+import { getRateLimiter, mutationLimiter } from "../middlewares/ratelimiter.js";
+
 const router = express.Router();
 
 router.use(protect);
 
-router.get("/getAllOrders", restrictTo("user"), getUserOrders);
-router.get("/allusers", restrictTo("admin"), allUser);
-router.post("/favBooks", userFavBooks);
-router.get("/me", protect, me);
-router.patch("/updateMe", protect, updateUserInfo);
-router.get("/:userId", getUser);
+router.get("/getAllOrders", getRateLimiter, restrictTo("user"), getUserOrders);
+router.get("/allusers", getRateLimiter, restrictTo("admin"), allUser);
+router.post("/favBooks", mutationLimiter, userFavBooks);
+router.get("/me", getRateLimiter, protect, me);
+router.patch("/updateMe", mutationLimiter, protect, updateUserInfo);
+router.get("/:userId", getRateLimiter, getUser);
 
 export default router;

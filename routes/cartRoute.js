@@ -8,13 +8,15 @@ import {
 import { protect } from "../controllers/authController.js";
 import restrictTo from "../middlewares/protect.js";
 
+import { getRateLimiter, mutationLimiter } from "../middlewares/ratelimiter.js";
+
 const router = express.Router();
 
 router.use(protect);
 router.use(restrictTo("user"));
 
-router.get("/getCart", getCart);
-router.post("/addToCart", addToCart);
-router.post("/removeBookFromCart/:bookId", removeBookFromCart);
+router.get("/getCart", getRateLimiter, getCart);
+router.post("/addToCart", mutationLimiter, addToCart);
+router.post("/removeBookFromCart/:bookId", mutationLimiter, removeBookFromCart);
 
 export default router;

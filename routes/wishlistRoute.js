@@ -9,20 +9,25 @@ import { protect } from "../controllers/authController.js";
 import { validateId } from "../middlewares/validateId.js";
 
 // importing rate limiting
-import createRateLimiter from "../middlewares/ratelimiter.js";
+import {
+  getRateLimiter,
+  mutationLimiter,
+  generalRateLimiter,
+} from "../middlewares/ratelimiter.js";
 
 const routes = Router();
 
 // for protecting routes
 routes.use(protect);
 
-// wishlist limiter
-const wishlistLimiter = createRateLimiter(10000, 2);
-routes.use(wishlistLimiter);
-
 // all the routes
-routes.get("/", getAllWishlist);
-routes.post("/:bookId", validateId("bookId"), addToWishlist);
-routes.delete("/:bookId", validateId("bookId"), removeFromWishlist);
+routes.get("/", getRateLimiter, getAllWishlist);
+routes.post("/:bookId", mutationLimiter, validateId("bookId"), addToWishlist);
+routes.delete(
+  "/:bookId",
+  generalRateLimiter,
+  validateId("bookId"),
+  removeFromWishlist,
+);
 
 export default routes;
