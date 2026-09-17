@@ -5,7 +5,7 @@ import { catchAsync } from "../utils/catchAsync.js";
 import AppError from "../utils/AppError.js";
 import Books from "../models/booksModel.js";
 
-const getDashboard = catchAsync(async (req, res, next) => {
+export const getDashboard = catchAsync(async (req, res, next) => {
   const today = new Date();
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
   const startOfYear = new Date(today.getFullYear(), 0, 1);
@@ -14,6 +14,42 @@ const getDashboard = catchAsync(async (req, res, next) => {
   const salesData = await Order.aggregate([
     {
       $facet: {
+        // total revenue
+        totalRevenue: [
+          {
+            $match: {
+              orderStatus: { $ne: "cancelled" },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              total: { $sum: "$totalPrice" },
+            },
+          },
+        ],
+
+        // total orders, including cancelled
+        totalOrders: [
+          {
+            $group: {
+              _id: null,
+              total: { $sum: 1 },
+            },
+          },
+        ],
+
+        // total books
+        totalBooks: [
+          {
+            $group: {
+              _id: null,
+              total: { $sum: 1,
+              },
+            },
+          },
+        ],
+
         // total sales this month
         monthlyTotal: [
           {
@@ -129,7 +165,7 @@ const getDashboard = catchAsync(async (req, res, next) => {
 
   //   inventory alerts
   const lowInventory = await Books.find({ stock: { $lte: 130 } }).select(
-    "title author stock"
+    "title author stock",
   );
 
   res.status(200).json({
@@ -142,7 +178,7 @@ const getDashboard = catchAsync(async (req, res, next) => {
 });
 
 // get sales analytics
-const getSalesAnalytics = catchAsync(async (req, res, next) => {
+export const getSalesAnalytics = catchAsync(async (req, res, next) => {
   const { startDate, endDate, groupBy = "day" } = req.query;
 
   // match stage
@@ -202,7 +238,7 @@ const getSalesAnalytics = catchAsync(async (req, res, next) => {
 });
 
 // Disable the user
-const deactiveUser = catchAsync(async (req, res, next) => {
+export const deactiveUser = catchAsync(async (req, res, next) => {
   const { userId } = req.params;
 
   if (!userId) {
@@ -210,7 +246,7 @@ const deactiveUser = catchAsync(async (req, res, next) => {
   }
 
   const user = await User.findByIdAndUpdate(userId, { isActive: false }).select(
-    "-password"
+    "-password",
   );
   if (!user) {
     return next(new AppError("User not found", 404));
@@ -222,4 +258,3 @@ const deactiveUser = catchAsync(async (req, res, next) => {
     data: user,
   });
 });
-export { getDashboard, getSalesAnalytics, deactiveUser  };
