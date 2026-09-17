@@ -3,6 +3,7 @@ import {
   deactiveUser,
   getDashboard,
   getSalesAnalytics,
+  bookAnalytics,
 } from "../controllers/adminController.js";
 import restrictTo from "../middlewares/protect.js";
 import { protect } from "../controllers/authController.js";
@@ -16,6 +17,7 @@ routes.use(restrictTo("admin"));
 
 routes.get("/getDashboard", getRateLimiter, getDashboard);
 routes.get("/getSalesAnalytics", getRateLimiter, getSalesAnalytics);
+routes.get("/getBooksAnalytics", bookAnalytics);
 routes.get("/deactivateUser", getRateLimiter, deactiveUser);
 
 export default routes;

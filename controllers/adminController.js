@@ -4,6 +4,7 @@ import Order from "../models/orderModel.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import AppError from "../utils/AppError.js";
 import Books from "../models/booksModel.js";
+import Review from "../models/reviewModel.js";
 
 export const getDashboard = catchAsync(async (req, res, next) => {
   const today = new Date();
@@ -44,8 +45,7 @@ export const getDashboard = catchAsync(async (req, res, next) => {
           {
             $group: {
               _id: null,
-              total: { $sum: 1,
-              },
+              total: { $sum: 1 },
             },
           },
         ],
@@ -256,5 +256,149 @@ export const deactiveUser = catchAsync(async (req, res, next) => {
     status: "success",
     message: "User is suspended",
     data: user,
+  });
+});
+
+// for book analytics
+export const bookAnalytics = catchAsync(async (req, res, next) => {
+  // sales by each book
+  const booksAnalytic = await Books.aggregate([
+    {
+      $group: {
+        _id: null,
+        total: { $sum: 1 },
+        totalActiveBooks: {
+          $sum: {
+            $cond: [{ $ne: ["$isDeleted", true] }, 1, 0],
+          },
+        },
+        totalInactiveBooks: {
+          $sum: {
+            $cond: [{ $ne: ["$isDeleted", false] }, 1, 0],
+          },
+        },
+        outOfStockBooks: {
+          $sum: {
+            $cond: [{ $eq: ["$stock", 0] }, 1, 0],
+          },
+        },
+        lowStockBooks: {
+          $sum: {
+            $cond: [{ $lt: ["$stock", 100] }, 1, 0],
+          },
+        },
+      },
+    },
+  ]);
+
+  const bookSaleAnalytics = await Order.aggregate([
+    {
+      $match: {
+        orderStatus: { $nin: ["cancelled", "refunded"] },
+      },
+    },
+    {
+      $unwind: "$items",
+    },
+    {
+      $group: {
+        _id: "$items.book",
+        totalSold: {
+          $sum: "$items.quantity",
+        },
+        totalOrders: {
+          $sum: 1,
+        },
+      },
+    },
+    {
+      $facet: {
+        bestSellingBooks: [
+          {
+            $sort: {
+              totalSold: -1,
+            },
+          },
+          {
+            $limit: 10,
+          },
+          {
+            $lookup: {
+              from: "books",
+              localField: "_id",
+              foreignField: "_id",
+              as: "book",
+            },
+          },
+        ],
+
+        lowSellingBooks: [
+          {
+            $sort: {
+              totalSold: 1,
+            },
+          },
+          {
+            $limit: 10,
+          },
+          {
+            $lookup: {
+              from: "books",
+              localField: "_id",
+              foreignField: "_id",
+              as: "book",
+            },
+          },
+        ],
+      },
+    },
+    {
+      $project: {
+        bestSellingBooks: 1,
+        lowSellingBooks: 1,
+      },
+    },
+  ]);
+
+  const bookReviewAnalytics = await Review.aggregate([
+    {
+      $group: {
+        _id: "$book",
+        totalRating: {
+          $sum: "$rating",
+        },
+        reviewCount: { $sum: 1 },
+        avgRating: { $avg: "$rating" },
+      },
+    },
+    {
+      $facet: {
+        mostRatedBook: [
+          {
+            $sort: {
+              totalRating: -1,
+            },
+          },
+          {
+            $limit: 10,
+          },
+        ],
+        highestRatedBook: [
+          {
+            $sort: {
+              avgRating: -1,
+            },
+          },
+          {
+            $limit: 10,
+          },
+        ],
+      },
+    },
+  ]);
+
+  res.status(200).json({
+    stauts: "success",
+    data: { booksAnalytic, bookSaleAnalytics, bookReviewAnalytics },
   });
 });
