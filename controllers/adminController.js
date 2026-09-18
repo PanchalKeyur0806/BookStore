@@ -5,6 +5,7 @@ import { catchAsync } from "../utils/catchAsync.js";
 import AppError from "../utils/AppError.js";
 import Books from "../models/booksModel.js";
 import Review from "../models/reviewModel.js";
+import Wishlist from "../models/wishlistModel.js";
 
 export const getDashboard = catchAsync(async (req, res, next) => {
   const today = new Date();
@@ -400,5 +401,101 @@ export const bookAnalytics = catchAsync(async (req, res, next) => {
   res.status(200).json({
     stauts: "success",
     data: { booksAnalytic, bookSaleAnalytics, bookReviewAnalytics },
+  });
+});
+
+// controller for tracking every book performance
+export const bookPerformance = catchAsync(async (req, res, nex) => {
+  const allBooksPerofrmance = await Books.aggregate([
+    // get the book analytics for all books
+    // total number of copy sold
+    // total revenue of each book
+    {
+      $lookup: {
+        from: "orders",
+        let: { bookId: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              orderStatus: {
+                $nin: ["cancelled", "refunded"],
+              },
+            },
+          },
+          {
+            $unwind: "$items",
+          },
+          {
+            $match: {
+              $expr: {
+                $eq: ["$items.book", "$$bookId"],
+              },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              totalSold: {
+                $sum: "$items.quantity",
+              },
+              totalRevenue: {
+                $sum: "$totalPrice",
+              },
+            },
+          },
+        ],
+        as: "orderAnalytics",
+      },
+    },
+
+    // get total wishlist count of each book
+    {
+      $lookup: {
+        from: "wishlists",
+        let: { bookId: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $eq: ["$book", "$$bookId"],
+              },
+            },
+          },
+          {
+            $count: "totalWishlistCount",
+          },
+        ],
+        as: "wishlistAnalytics",
+      },
+    },
+
+    // get the total rating of each book
+    {
+      $lookup: {
+        from: "reviews",
+        let: { bookId: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $eq: ["$book", "$$bookId"],
+              },
+            },
+          },
+          {
+            $group: {
+              _id: "$book",
+              averageRating: { $avg: "$rating" },
+            },
+          },
+        ],
+        as: "bookRating",
+      },
+    },
+  ]);
+
+  res.status(200).json({
+    status: "success",
+    data: allBooksPerofrmance,
   });
 });
