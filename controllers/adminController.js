@@ -499,3 +499,51 @@ export const bookPerformance = catchAsync(async (req, res, nex) => {
     data: allBooksPerofrmance,
   });
 });
+
+export const bookCategorySales = catchAsync(async (req, res, next) => {
+  const categoryRevenue = await Order.aggregate([
+    // filter all the document
+    {
+      $match: {
+        orderStatus: {
+          $nin: ["cancelled", "refunded"],
+        },
+      },
+    },
+    // convert array to objects for better lookup
+    {
+      $unwind: "$items",
+    },
+    // perform lookup to books
+    {
+      $lookup: {
+        from: "books",
+        localField: "items.book",
+        foreignField: "_id",
+        as: "book",
+      },
+    },
+    {
+      $unwind: "$book",
+    },
+
+    // group together all the category and calculate sales & revenue
+    {
+      $group: {
+        _id: "$book.category",
+        getSales: {
+          $sum: "$items.quantity",
+        },
+        getRevenue: {
+          $sum: "$totalPrice",
+        },
+      },
+    },
+  ]);
+
+  // return response
+  res.status(200).json({
+    status: "success",
+    data: categoryRevenue,
+  });
+});
