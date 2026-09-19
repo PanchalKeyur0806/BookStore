@@ -6,6 +6,7 @@ import {
   bookAnalytics,
   bookPerformance,
   bookCategorySales,
+  categorySalesTrend,
 } from "../controllers/adminController.js";
 import restrictTo from "../middlewares/protect.js";
 import { protect } from "../controllers/authController.js";
@@ -22,6 +23,7 @@ routes.get("/getSalesAnalytics", getRateLimiter, getSalesAnalytics);
 routes.get("/book/analytics", bookAnalytics);
 routes.get("/book/performance", bookPerformance);
 routes.get("/book/category/revenue", bookCategorySales);
+routes.get("/book/category/trend", categorySalesTrend);
 routes.get("/deactivateUser", getRateLimiter, deactiveUser);
 
 export default routes;

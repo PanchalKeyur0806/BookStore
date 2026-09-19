@@ -547,3 +547,60 @@ export const bookCategorySales = catchAsync(async (req, res, next) => {
     data: categoryRevenue,
   });
 });
+
+// needs to implement this
+export const categorySalesTrend = catchAsync(async (req, res, next) => {
+  const categoryTrendAnalytics = await Order.aggregate([
+    // find the orders, except cancelled, refunded
+    {
+      $match: {
+        orderStatus: {
+          $nin: ["cancelled", "refunded"],
+        },
+      },
+    },
+    // convert array to objects
+    {
+      $unwind: "$items",
+    },
+    // get the book data
+    {
+      $lookup: {
+        from: "books",
+        localField: "items.book",
+        foreignField: "_id",
+        as: "book",
+      },
+    },
+    // conver book from array to object
+    {
+      $unwind: "$book",
+    },
+    // group all the books together by category, month, year
+    {
+      $group: {
+        _id: {
+          category: "$book.category",
+          year: {
+            $year: "$createdAt",
+          },
+          month: {
+            $month: "$createdAt",
+          },
+        },
+        totalQuantity: {
+          $sum: "$items.quantity",
+        },
+        totalRevenue: {
+          $sum: "$items.totalPrice",
+        },
+      },
+    },
+  ]);
+
+  // return the response
+  res.status(200).json({
+    status: "success",
+    data: categoryTrendAnalytics,
+  });
+});
