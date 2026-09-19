@@ -643,3 +643,55 @@ export const orderAnalytics = catchAsync(async (req, res, next) => {
     data: { orderStatusAnalytics, orderCancellationAnalytics },
   });
 });
+
+export const customerAnalytics = catchAsync(async (req, res, next) => {
+  const userAnalytics = await User.aggregate([
+    {
+      $group: {
+        _id: {
+          // $month: "$createdAt",
+          $dateToString: {
+            format: "%B",
+            date: "$createdAt",
+          },
+        },
+        totalUsers: { $sum: 1 },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        month: "$_id",
+        totalUsers: 1,
+      },
+    },
+  ]);
+
+  const topPayingCustomers = await Order.aggregate([
+    {
+      $match: {
+        orderStatus: { $ne: "cancelled" },
+      },
+    },
+    {
+      $group: {
+        _id: "$user",
+        totalOrders: { $sum: 1 },
+        totalMoneySpent: { $sum: "$totalPrice" },
+      },
+    },
+    {
+      $sort: {
+        totalMoneySpent: -1,
+      },
+    },
+    {
+      $limit: 10,
+    },
+  ]);
+
+  res.status(200).json({
+    status: "success",
+    data: { userAnalytics, topPayingCustomers },
+  });
+});
