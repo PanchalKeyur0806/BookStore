@@ -7,6 +7,32 @@ import Books from "../models/booksModel.js";
 import Review from "../models/reviewModel.js";
 import Wishlist from "../models/wishlistModel.js";
 
+function categoryCommonAggregation() {
+  return [
+    {
+      $match: {
+        orderStatus: {
+          $ne: "cancelled",
+        },
+      },
+    },
+    {
+      $unwind: "$items",
+    },
+    {
+      $lookup: {
+        from: "books",
+        localField: "items.book",
+        foreignField: "_id",
+        as: "book",
+      },
+    },
+    {
+      $unwind: "$book",
+    },
+  ];
+}
+
 export const getDashboard = catchAsync(async (req, res, next) => {
   const today = new Date();
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -295,7 +321,7 @@ export const bookAnalytics = catchAsync(async (req, res, next) => {
   const bookSaleAnalytics = await Order.aggregate([
     {
       $match: {
-        orderStatus: { $nin: ["cancelled", "refunded"] },
+        $ne: "cancelled",
       },
     },
     {
@@ -418,7 +444,7 @@ export const bookPerformance = catchAsync(async (req, res, nex) => {
           {
             $match: {
               orderStatus: {
-                $nin: ["cancelled", "refunded"],
+                $ne: "cancelled",
               },
             },
           },
@@ -503,29 +529,7 @@ export const bookPerformance = catchAsync(async (req, res, nex) => {
 export const bookCategorySales = catchAsync(async (req, res, next) => {
   const categoryRevenue = await Order.aggregate([
     // filter all the document
-    {
-      $match: {
-        orderStatus: {
-          $nin: ["cancelled", "refunded"],
-        },
-      },
-    },
-    // convert array to objects for better lookup
-    {
-      $unwind: "$items",
-    },
-    // perform lookup to books
-    {
-      $lookup: {
-        from: "books",
-        localField: "items.book",
-        foreignField: "_id",
-        as: "book",
-      },
-    },
-    {
-      $unwind: "$book",
-    },
+    ...categoryCommonAggregation(),
 
     // group together all the category and calculate sales & revenue
     {
@@ -551,31 +555,7 @@ export const bookCategorySales = catchAsync(async (req, res, next) => {
 // needs to implement this
 export const categorySalesTrend = catchAsync(async (req, res, next) => {
   const categoryTrendAnalytics = await Order.aggregate([
-    // find the orders, except cancelled, refunded
-    {
-      $match: {
-        orderStatus: {
-          $nin: ["cancelled", "refunded"],
-        },
-      },
-    },
-    // convert array to objects
-    {
-      $unwind: "$items",
-    },
-    // get the book data
-    {
-      $lookup: {
-        from: "books",
-        localField: "items.book",
-        foreignField: "_id",
-        as: "book",
-      },
-    },
-    // conver book from array to object
-    {
-      $unwind: "$book",
-    },
+    ...categoryCommonAggregation(),
     // group all the books together by category, month, year
     {
       $group: {
