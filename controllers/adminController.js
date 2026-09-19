@@ -552,7 +552,6 @@ export const bookCategorySales = catchAsync(async (req, res, next) => {
   });
 });
 
-// needs to implement this
 export const categorySalesTrend = catchAsync(async (req, res, next) => {
   const categoryTrendAnalytics = await Order.aggregate([
     ...categoryCommonAggregation(),
@@ -572,7 +571,7 @@ export const categorySalesTrend = catchAsync(async (req, res, next) => {
           $sum: "$items.quantity",
         },
         totalRevenue: {
-          $sum: "$items.totalPrice",
+          $sum: "$totalPrice",
         },
       },
     },
@@ -582,5 +581,65 @@ export const categorySalesTrend = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: "success",
     data: categoryTrendAnalytics,
+  });
+});
+
+export const orderAnalytics = catchAsync(async (req, res, next) => {
+  const orderStatusAnalytics = await Order.aggregate([
+    {
+      $group: {
+        _id: "$orderStatus",
+        totalOrders: {
+          $sum: 1,
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        orderStatus: "$_id",
+        totalOrders: 1,
+      },
+    },
+  ]);
+
+  const orderCancellationAnalytics = await Order.aggregate([
+    {
+      $group: {
+        _id: null,
+        totalOrders: { $sum: 1 },
+        cancelledOrders: {
+          $sum: {
+            $cond: [
+              {
+                $eq: ["$orderStatus", "cancelled"],
+              },
+              1,
+              0,
+            ],
+          },
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        totalOrders: 1,
+        cancelledOrders: 1,
+        cancellationRate: {
+          $multiply: [
+            {
+              $divide: ["$cancelledOrders", "$totalOrders"],
+            },
+            100,
+          ],
+        },
+      },
+    },
+  ]);
+
+  res.status(200).json({
+    status: "success",
+    data: { orderStatusAnalytics, orderCancellationAnalytics },
   });
 });
