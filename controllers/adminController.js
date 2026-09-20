@@ -644,6 +644,99 @@ export const orderAnalytics = catchAsync(async (req, res, next) => {
   });
 });
 
+export const orderGrowth = catchAsync(async (req, res, next) => {
+  const { startDate, endDate } = req.query;
+
+  // check the start date and end date
+  if (!startDate || !endDate) {
+    return next(new AppError("Please enter start and end date", 400));
+  }
+
+  // convert dates to correct format
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  // check date validations
+  if (start > end) {
+    return next(new AppError("Please Enter valid start and end date", 400));
+  }
+
+  // convert date to ms
+  const dateInMS = end - start;
+  const differenceDate = dateInMS / (1000 * 60 * 60 * 24);
+
+  // check date validation
+  if (differenceDate > 90) {
+    return next(
+      new AppError("Difference of date should not be bigger than 90 days", 400),
+    );
+  }
+
+  // get order growth analytics
+  const orderGrowthAnalytic = await Order.aggregate([
+    // get the documents between start and end
+    {
+      $match: {
+        createdAt: { $gte: start, $lte: end },
+      },
+    },
+    // group together same all the document by same day
+    {
+      $group: {
+        _id: {
+          $dateTrunc: {
+            date: "$createdAt",
+            unit: "day",
+          },
+        },
+        totalOrders: { $sum: 1 },
+      },
+    },
+    // select only necessory dates
+    {
+      $project: {
+        _id: 0,
+        date: "$_id",
+        totalOrders: 1,
+      },
+    },
+    // create a field that generates the dates
+    {
+      $densify: {
+        field: "date",
+        range: {
+          bounds: [start, end],
+          step: 1,
+          unit: "day",
+        },
+      },
+    },
+    // fill the values to each date
+    {
+      $fill: {
+        sortBy: {
+          date: 1,
+        },
+        output: {
+          totalOrders: {
+            value: 0,
+          },
+        },
+      },
+    },
+    // sort the data
+    {
+      $sort: { date: 1 },
+    },
+  ]);
+
+  // return the reponse
+  res.status(200).json({
+    status: "success",
+    data: orderGrowthAnalytic,
+  });
+});
+
 export const customerAnalytics = catchAsync(async (req, res, next) => {
   const userAnalytics = await User.aggregate([
     {
