@@ -321,7 +321,7 @@ export const bookAnalytics = catchAsync(async (req, res, next) => {
   const bookSaleAnalytics = await Order.aggregate([
     {
       $match: {
-        $ne: "cancelled",
+        orderStatus: { $ne: "cancelled" },
       },
     },
     {
