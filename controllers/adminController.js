@@ -739,3 +739,73 @@ export const customerAnalytics = catchAsync(async (req, res, next) => {
     data: { userAnalytics, topPayingCustomers, returningCustomers },
   });
 });
+
+export const deadMovingStocks = catchAsync(async (req, res, next) => {
+  const deadMovingStockAnalytics = await Books.aggregate([
+    {
+      $lookup: {
+        from: "orders",
+        let: { bookId: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              orderStatus: "delivered",
+              createdAt: {
+                $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+              },
+            },
+          },
+          {
+            $unwind: "$items",
+          },
+          {
+            $match: {
+              $expr: {
+                $eq: ["$items.book", "$$bookId"],
+              },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              totalSold: { $sum: "$items.quantity" },
+            },
+          },
+        ],
+        as: "sales",
+      },
+    },
+    {
+      $addFields: {
+        totalSold: {
+          $ifNull: [
+            {
+              $arrayElemAt: ["$sales.totalSold", 0],
+            },
+            0,
+          ],
+        },
+      },
+    },
+    {
+      $match: {
+        totalSold: 0,
+      },
+    },
+    {
+      $project: {
+        _id: 1,
+        title: 1,
+        stock: 1,
+        author: 1,
+        price: 1,
+        totalSold: 1,
+      },
+    },
+  ]);
+
+  res.status(200).json({
+    status: "success",
+    data: deadMovingStockAnalytics,
+  });
+});
