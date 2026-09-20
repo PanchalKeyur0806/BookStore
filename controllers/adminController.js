@@ -809,3 +809,104 @@ export const deadMovingStocks = catchAsync(async (req, res, next) => {
     data: deadMovingStockAnalytics,
   });
 });
+
+export const paymentAnalytics = catchAsync(async (req, res, next) => {
+  const paymentStatusAnalytics = await Order.aggregate([
+    {
+      $group: {
+        _id: null,
+        successfullPayments: {
+          $sum: {
+            $cond: [{ $eq: ["$paymentInfo.status", "paid"] }, 1, 0],
+          },
+        },
+        successfullAmounts: {
+          $sum: {
+            $cond: [{ $eq: ["$paymentInfo.status", "paid"] }, "$totalPrice", 0],
+          },
+        },
+        failedPayments: {
+          $sum: {
+            $cond: [{ $eq: ["$paymentInfo.status", "failed"] }, 1, 0],
+          },
+        },
+        failedAmounts: {
+          $sum: {
+            $cond: [
+              { $eq: ["$paymentInfo.status", "failed"] },
+              "$totalPrice",
+              0,
+            ],
+          },
+        },
+        refundedPayments: {
+          $sum: {
+            $cond: [{ $eq: ["$paymentInfo.status", "cancelled"] }, 1, 0],
+          },
+        },
+        refundedAmounts: {
+          $sum: {
+            $cond: [
+              { $eq: ["$paymentInfo.status", "cancelled"] },
+              "$totalPrice",
+              0,
+            ],
+          },
+        },
+      },
+    },
+  ]);
+
+  const paymentStatusRate = await Order.aggregate([
+    {
+      $group: {
+        _id: null,
+        successfullPayments: {
+          $sum: {
+            $cond: [
+              { $in: ["$paymentInfo.status", ["paid", "cancelled"]] },
+              1,
+              0,
+            ],
+          },
+        },
+        failedPayments: {
+          $sum: {
+            $cond: [{ $eq: ["$paymentInfo.status", "failed"] }, 1, 0],
+          },
+        },
+        totalPayments: {
+          $sum: 1,
+        },
+      },
+    },
+    {
+      $project: {
+        successfullPayments: 1,
+        failedPayments: 1,
+        totalPayments: 1,
+        successRate: {
+          $multiply: [
+            {
+              $divide: ["$successfullPayments", "$totalPayments"],
+            },
+            100,
+          ],
+        },
+        failedRate: {
+          $multiply: [
+            {
+              $divide: ["$failedPayments", "$totalPayments"],
+            },
+            100,
+          ],
+        },
+      },
+    },
+  ]);
+
+  res.status(200).json({
+    status: "success",
+    data: { paymentStatusAnalytics, paymentStatusRate },
+  });
+});
