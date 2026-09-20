@@ -855,6 +855,11 @@ export const paymentAnalytics = catchAsync(async (req, res, next) => {
         },
       },
     },
+    {
+      $project: {
+        _id: 0,
+      },
+    },
   ]);
 
   const paymentStatusRate = await Order.aggregate([
@@ -882,6 +887,7 @@ export const paymentAnalytics = catchAsync(async (req, res, next) => {
     },
     {
       $project: {
+        _id: 0,
         successfullPayments: 1,
         failedPayments: 1,
         totalPayments: 1,
