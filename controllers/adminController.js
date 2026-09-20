@@ -690,8 +690,52 @@ export const customerAnalytics = catchAsync(async (req, res, next) => {
     },
   ]);
 
+  const returningCustomers = await Order.aggregate([
+    {
+      $match: { orderStatus: { $eq: "delivered" } },
+    },
+    {
+      $group: {
+        _id: "$user",
+        totalOrder: { $sum: 1 },
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        totalCustomers: { $sum: 1 },
+        returningCustomers: {
+          $sum: {
+            $cond: [{ $gt: ["$totalOrder", 1] }, 1, 0],
+          },
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        totalCustomers: 1,
+        returningCustomers: 1,
+        returningCustomersRate: {
+          $cond: [
+            { $eq: ["$totalCustomers", 0] },
+            0,
+            {
+              $multiply: [
+                {
+                  $divide: ["$returningCustomers", "$totalCustomers"],
+                },
+                100,
+              ],
+            },
+          ],
+        },
+      },
+    },
+  ]);
+
   res.status(200).json({
     status: "success",
-    data: { userAnalytics, topPayingCustomers },
+    data: { userAnalytics, topPayingCustomers, returningCustomers },
   });
 });
