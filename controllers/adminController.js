@@ -455,9 +455,7 @@ export const bookPerformance = catchAsync(async (req, res, nex) => {
         pipeline: [
           {
             $match: {
-              orderStatus: {
-                $ne: "cancelled",
-              },
+              orderStatus: "delivered",
             },
           },
           {
@@ -481,8 +479,30 @@ export const bookPerformance = catchAsync(async (req, res, nex) => {
               },
             },
           },
+          {
+            $project: {
+              _id: 0,
+            },
+          },
         ],
         as: "orderAnalytics",
+      },
+    },
+
+    {
+      $set: {
+        orderAnalytics: {
+          $cond: [
+            { $eq: [{ $size: "$orderAnalytics" }, 0] },
+            [
+              {
+                totalSold: 0,
+                totalRevenue: 0,
+              },
+            ],
+            "$orderAnalytics",
+          ],
+        },
       },
     },
 
@@ -506,6 +526,21 @@ export const bookPerformance = catchAsync(async (req, res, nex) => {
         as: "wishlistAnalytics",
       },
     },
+    {
+      $set: {
+        wishlistAnalytics: {
+          $cond: [
+            { $eq: [{ $size: "$wishlistAnalytics" }, 0] },
+            [
+              {
+                totalWishlistCount: 0,
+              },
+            ],
+            "$wishlistAnalytics",
+          ],
+        },
+      },
+    },
 
     // get the total rating of each book
     {
@@ -526,8 +561,30 @@ export const bookPerformance = catchAsync(async (req, res, nex) => {
               averageRating: { $avg: "$rating" },
             },
           },
+          {
+            $project: {
+              _id: 0,
+            },
+          },
         ],
         as: "bookRating",
+      },
+    },
+    {
+      $set: {
+        bookRating: {
+          $cond: [
+            {
+              $eq: [{ $size: "$bookRating" }, 0],
+            },
+            [
+              {
+                averageRating: 0,
+              },
+            ],
+            "$bookRating",
+          ],
+        },
       },
     },
   ]);
