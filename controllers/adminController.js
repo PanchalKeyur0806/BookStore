@@ -11,9 +11,7 @@ function categoryCommonAggregation() {
   return [
     {
       $match: {
-        orderStatus: {
-          $ne: "cancelled",
-        },
+        orderStatus: "delivered",
       },
     },
     {
@@ -527,6 +525,18 @@ export const bookPerformance = catchAsync(async (req, res, nex) => {
 });
 
 export const bookCategorySales = catchAsync(async (req, res, next) => {
+  const BOOK_CATEGORIES = [
+    "Fantasy",
+    "Action",
+    "Adventure",
+    "Mystery",
+    "Horror",
+    "Thriller",
+    "Romance",
+    "Self-help",
+    "Biography",
+  ];
+
   const categoryRevenue = await Order.aggregate([
     // filter all the document
     ...categoryCommonAggregation(),
@@ -543,28 +553,84 @@ export const bookCategorySales = catchAsync(async (req, res, next) => {
         },
       },
     },
+    {
+      $project: {
+        _id: 0,
+        category: "$_id",
+        getSales: 1,
+        getRevenue: 1,
+      },
+    },
   ]);
+
+  const categoryMap = new Map(
+    categoryRevenue.map((item) => [item.category, item]),
+  );
+
+  const result = BOOK_CATEGORIES.map((category) => ({
+    category,
+    getSales: categoryMap.get(category)?.getSales ?? 0,
+    getRevenue: categoryMap.get(category)?.getRevenue ?? 0,
+  }));
 
   // return response
   res.status(200).json({
     status: "success",
-    data: categoryRevenue,
+    data: result,
   });
 });
 
 export const categorySalesTrend = catchAsync(async (req, res, next) => {
+  const { startDate, endDate } = req.query;
+
+  if (!startDate || !endDate) {
+    return next(new AppError("Please enter start and end date", 400));
+  }
+
+  // convert strings to date
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  if (isNaN(start) || isNaN(end)) {
+    return next(new AppError("Please enter valid start or end date", 400));
+  }
+
+  if (end <= start) {
+    return next(new AppError("End date must be after start date", 400));
+  }
+
   const categoryTrendAnalytics = await Order.aggregate([
-    ...categoryCommonAggregation(),
+    {
+      $match: {
+        orderStatus: "delivered",
+        createdAt: { $gte: start, $lte: end },
+      },
+    },
+    {
+      $unwind: "$items",
+    },
+    {
+      $lookup: {
+        from: "books",
+        localField: "items.book",
+        foreignField: "_id",
+        as: "book",
+      },
+    },
+    {
+      $unwind: "$book",
+    },
+
     // group all the books together by category, month, year
     {
       $group: {
         _id: {
           category: "$book.category",
-          year: {
-            $year: "$createdAt",
-          },
-          month: {
-            $month: "$createdAt",
+          createdAt: {
+            $dateTrunc: {
+              date: "$createdAt",
+              unit: "month",
+            },
           },
         },
         totalQuantity: {
@@ -573,6 +639,50 @@ export const categorySalesTrend = catchAsync(async (req, res, next) => {
         totalRevenue: {
           $sum: "$totalPrice",
         },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        category: "$_id.category",
+        year: "$_id.createdAt",
+        totalRevenue: 1,
+        totalQuantity: 1,
+      },
+    },
+    {
+      $densify: {
+        field: "year",
+        // partitionByFields: ["category"],
+        range: {
+          step: 1,
+          unit: "month",
+          bounds: [start, end],
+        },
+      },
+    },
+    {
+      $fill: {
+        sortBy: { year: 1 },
+        output: {
+          totalRevenue: { value: 0 },
+          totalQuantity: { value: 0 },
+          category: { value: null },
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        year: {
+          $dateToString: {
+            date: "$year",
+            format: "%Y-%m",
+          },
+        },
+        category: "$category",
+        totalQuantity: 1,
+        totalRevenue: 1,
       },
     },
   ]);
@@ -800,25 +910,28 @@ export const averageOrderValueAnalytics = catchAsync(async (req, res, next) => {
   }
 
   // get the difference of 1 year
-  const oneYearLater = new Date(start);
-  oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+  // ! Remove this also
+  // const oneYearLater = new Date(start);
+  // oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
 
   // check that end date and 1 year is same, if not return error
-  if (end.getTime() !== oneYearLater.getTime()) {
-    return next(
-      new AppError(
-        "Start date and end date must have difference of exactly 1 year",
-        400,
-      ),
-    );
-  }
+  // ! needs to remove this later
+  // ** TODO:- if end date is bigger than the one year then throw the error
+  // if (end.getTime() !== oneYearLater.getTime()) {
+  //   return next(
+  //     new AppError(
+  //       "Start date and end date must have difference of exactly 1 year",
+  //       400,
+  //     ),
+  //   );
+  // }
 
   const avgOrderAnalytic = await Order.aggregate([
     // find the orders that have been delivered and should be in range of startDate and endDate
     {
       $match: {
         orderStatus: "delivered",
-        createdAt: { $gte: start, $lte: oneYearLater },
+        createdAt: { $gte: start, $lte: end },
       },
     },
     // group all the documents together by month
@@ -839,7 +952,7 @@ export const averageOrderValueAnalytics = catchAsync(async (req, res, next) => {
       $densify: {
         field: "_id",
         range: {
-          bounds: [start, oneYearLater],
+          bounds: [start, end],
           step: 1,
           unit: "month",
         },
