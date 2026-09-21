@@ -584,6 +584,46 @@ export const categorySalesTrend = catchAsync(async (req, res, next) => {
   });
 });
 
+export const bookRatingDistribution = catchAsync(async (req, res, next) => {
+  const bookRatingDistributionAnalytic = await Review.aggregate([
+    {
+      $group: {
+        _id: "$book",
+        fiveStarRating: {
+          $sum: {
+            $cond: [{ $eq: ["$rating", 5] }, 1, 0],
+          },
+        },
+        fourStarRating: {
+          $sum: {
+            $cond: [{ $eq: ["$rating", 4] }, 1, 0],
+          },
+        },
+        threeStarRating: {
+          $sum: {
+            $cond: [{ $eq: ["$rating", 3] }, 1, 0],
+          },
+        },
+        twoStarRating: {
+          $sum: {
+            $cond: [{ $eq: ["$rating", 2] }, 1, 0],
+          },
+        },
+        oneStarRating: {
+          $sum: {
+            $cond: [{ $eq: ["$rating", 1] }, 1, 0],
+          },
+        },
+      },
+    },
+  ]);
+
+  res.status(200).json({
+    status: "success",
+    data: bookRatingDistributionAnalytic,
+  });
+});
+
 export const orderAnalytics = catchAsync(async (req, res, next) => {
   const orderStatusAnalytics = await Order.aggregate([
     {
