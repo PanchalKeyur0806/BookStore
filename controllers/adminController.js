@@ -737,6 +737,125 @@ export const orderGrowth = catchAsync(async (req, res, next) => {
   });
 });
 
+export const averageOrderValueAnalytics = catchAsync(async (req, res, next) => {
+  // get the start date and end date from the query
+  const { startDate, endDate } = req.query;
+
+  // check if startDate and endDate exists
+  if (!startDate || !endDate) {
+    return next(new AppError("please enter start and end date", 400));
+  }
+
+  // convert string to date
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  // check validation
+  if (isNaN(start) || isNaN(end)) {
+    return next(new AppError("please enter valid dates", 400));
+  }
+
+  if (end <= start) {
+    return next(new AppError("End date must be after start date", 400));
+  }
+
+  // get the difference of 1 year
+  const oneYearLater = new Date(start);
+  oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+
+  // check that end date and 1 year is same, if not return error
+  if (end.getTime() !== oneYearLater.getTime()) {
+    return next(
+      new AppError(
+        "Start date and end date must have difference of exactly 1 year",
+        400,
+      ),
+    );
+  }
+
+  const avgOrderAnalytic = await Order.aggregate([
+    // find the orders that have been delivered and should be in range of startDate and endDate
+    {
+      $match: {
+        orderStatus: "delivered",
+        createdAt: { $gte: start, $lte: oneYearLater },
+      },
+    },
+    // group all the documents together by month
+    {
+      $group: {
+        _id: {
+          $dateTrunc: {
+            date: "$createdAt",
+            unit: "month",
+          },
+        },
+        completedOrders: { $sum: 1 },
+        totalRevenue: { $sum: "$totalPrice" },
+      },
+    },
+    // create a additional dummy data, if data doesn't exists on database
+    {
+      $densify: {
+        field: "_id",
+        range: {
+          bounds: [start, oneYearLater],
+          step: 1,
+          unit: "month",
+        },
+      },
+    },
+    // fill those data
+    {
+      $fill: {
+        sortBy: { _id: 1 },
+        output: {
+          completedOrders: {
+            value: 0,
+          },
+          totalRevenue: {
+            value: 0,
+          },
+        },
+      },
+    },
+    // only get required fields
+    {
+      $project: {
+        _id: 0,
+        month: {
+          $dateToString: {
+            format: "%Y-%m",
+            date: "$_id",
+          },
+        },
+        completedOrders: 1,
+        totalRevenue: 1,
+        avgOrderValue: {
+          $cond: [
+            {
+              $gt: ["$completedOrders", 0],
+            },
+            {
+              $round: [{ $divide: ["$totalRevenue", "$completedOrders"] }, 2],
+            },
+            0,
+          ],
+        },
+      },
+    },
+    // sort all data
+    {
+      $sort: { month: 1 },
+    },
+  ]);
+
+  res.status(200).json({
+    status: "success",
+    data: avgOrderAnalytic,
+  });
+});
+
 export const customerAnalytics = catchAsync(async (req, res, next) => {
   const userAnalytics = await User.aggregate([
     {
