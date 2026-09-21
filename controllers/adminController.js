@@ -314,12 +314,17 @@ export const bookAnalytics = catchAsync(async (req, res, next) => {
         },
       },
     },
+    {
+      $project: {
+        _id: 0,
+      },
+    },
   ]);
 
   const bookSaleAnalytics = await Order.aggregate([
     {
       $match: {
-        orderStatus: { $ne: "cancelled" },
+        orderStatus: "delivered",
       },
     },
     {
@@ -394,6 +399,15 @@ export const bookAnalytics = catchAsync(async (req, res, next) => {
         },
         reviewCount: { $sum: 1 },
         avgRating: { $avg: "$rating" },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        bookId: "$_id",
+        totalRating: 1,
+        reviewCount: 1,
+        avgRating: 1,
       },
     },
     {
