@@ -53,6 +53,9 @@ export const getDashboard = catchAsync(async (req, res, next) => {
               total: { $sum: "$totalPrice" },
             },
           },
+          {
+            $project: { _id: 0 },
+          },
         ],
 
         // total orders, including cancelled
@@ -63,15 +66,23 @@ export const getDashboard = catchAsync(async (req, res, next) => {
               total: { $sum: 1 },
             },
           },
+          {
+            $project: { _id: 0 },
+          },
         ],
 
         // total books
+        // !need some improvement
+        // **TODO:- this aggregation only calculates the total number of book sold, not the actual book
         totalBooks: [
           {
             $group: {
               _id: null,
               total: { $sum: 1 },
             },
+          },
+          {
+            $project: { _id: 0 },
           },
         ],
 
@@ -80,7 +91,7 @@ export const getDashboard = catchAsync(async (req, res, next) => {
           {
             $match: {
               createdAt: { $gte: startOfMonth },
-              orderStatus: { $ne: "cancelled" },
+              orderStatus: "delivered",
             },
           },
           {
@@ -97,7 +108,7 @@ export const getDashboard = catchAsync(async (req, res, next) => {
           {
             $match: {
               createdAt: { $gte: startOfYear },
-              orderStatus: { $ne: "cancelled" },
+              orderStatus: "delivered",
             },
           },
           {
@@ -114,7 +125,7 @@ export const getDashboard = catchAsync(async (req, res, next) => {
           {
             $match: {
               createdAt: { $gte: last30days },
-              orderStatus: { $ne: "cancelled" },
+              orderStatus: "delivered",
             },
           },
           {
@@ -128,22 +139,53 @@ export const getDashboard = catchAsync(async (req, res, next) => {
           },
         ],
 
-        //   top books
-        topBooks: [
-          { $match: { orderStatus: { $ne: "cancelled" } } },
+        //   top book
+        topBook: [
+          { $match: { orderStatus: "delivered" } },
           { $unwind: "$items" },
           {
             $group: {
               _id: "$items.book",
-              title: { $first: "$items.title" },
               totalSold: { $sum: "$items.quantity" },
-              // revenue: { $sum: "" },
+              revenue: { $sum: "$totalPrice" },
             },
           },
+          {
+            $lookup: {
+              from: "books",
+              localField: "_id",
+              foreignField: "_id",
+              as: "book",
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              bookId: "$_id",
+              title: { $arrayElemAt: ["$book.title", 0] },
+              totalSold: 1,
+              revenue: 1,
+            },
+          },
+
           {
             $sort: { totalSold: -1 },
           },
         ],
+      },
+    },
+    {
+      $set: {
+        totalRevenue: { $arrayElemAt: ["$totalRevenue", 0] },
+        totalOrders: { $arrayElemAt: ["$totalOrders", 0] },
+        totalBooks: { $arrayElemAt: ["$totalBooks", 0] },
+        topBook: { $arrayElemAt: ["$topBook", 0] },
+        // monthlyTotal: {
+        //   $ifNull: [
+        //     { $arrayElemAt: ["$monthlyTotal", 0] },
+        //     { total: 0, count: 0 },
+        //   ],
+        // },
       },
     },
   ]);
@@ -178,6 +220,7 @@ export const getDashboard = catchAsync(async (req, res, next) => {
       $facet: {
         orderByStatus: [
           { $group: { _id: "$orderStatus", count: { $sum: 1 } } },
+          { $project: { _id: 0, orderStatus: "$_id", count: 1 } },
         ],
 
         pendingOrders: [
@@ -186,10 +229,11 @@ export const getDashboard = catchAsync(async (req, res, next) => {
         ],
       },
     },
+    { $set: { pendingOrders: { $arrayElemAt: ["$pendingOrders", 0] } } },
   ]);
 
   //   inventory alerts
-  const lowInventory = await Books.find({ stock: { $lte: 130 } }).select(
+  const lowInventory = await Books.find({ stock: { $lte: 10 } }).select(
     "title author stock",
   );
 
@@ -1003,21 +1047,13 @@ export const averageOrderValueAnalytics = catchAsync(async (req, res, next) => {
   }
 
   // get the difference of 1 year
-  // ! Remove this also
-  // const oneYearLater = new Date(start);
-  // oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+  const oneYearLater = new Date(start);
+  oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
 
   // check that end date and 1 year is same, if not return error
-  // ! needs to remove this later
-  // ** TODO:- if end date is bigger than the one year then throw the error
-  // if (end.getTime() !== oneYearLater.getTime()) {
-  //   return next(
-  //     new AppError(
-  //       "Start date and end date must have difference of exactly 1 year",
-  //       400,
-  //     ),
-  //   );
-  // }
+  if (end > oneYearLater) {
+    return next(new AppError("The date range cannot exceed one year", 400));
+  }
 
   const avgOrderAnalytic = await Order.aggregate([
     // find the orders that have been delivered and should be in range of startDate and endDate

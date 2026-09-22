@@ -25,7 +25,7 @@ const routes = express.Router();
 routes.use(protect);
 routes.use(restrictTo("admin"));
 
-routes.get("/getDashboard", getRateLimiter, getDashboard);
+routes.get("/dashboard", getRateLimiter, getDashboard);
 routes.get("/getSalesAnalytics", getRateLimiter, getSalesAnalytics);
 routes.get("/book/analytics", bookAnalytics);
 routes.get("/book/deadstock", deadMovingStocks);

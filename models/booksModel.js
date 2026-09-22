@@ -65,8 +65,6 @@ const bookSchema = mongoose.Schema({
 });
 
 bookSchema.pre(/^find/, function (next) {
-  console.log("This middleware hit");
-
   this.find({ isDeleted: false });
 
   next();
