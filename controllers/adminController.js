@@ -797,6 +797,17 @@ export const bookRatingDistribution = catchAsync(async (req, res, next) => {
         },
       },
     },
+    {
+      $project: {
+        _id: 0,
+        bookId: "$_id",
+        fiveStarRating: 1,
+        fourStarRating: 1,
+        threeStarRating: 1,
+        twoStarRating: 1,
+        oneStarRating: 1,
+      },
+    },
   ]);
 
   res.status(200).json({
@@ -943,6 +954,17 @@ export const orderGrowth = catchAsync(async (req, res, next) => {
             value: 0,
           },
         },
+      },
+    },
+    {
+      $project: {
+        date: {
+          $dateToString: {
+            date: "$date",
+            format: "%Y-%m-%d",
+          },
+        },
+        totalOrders: 1,
       },
     },
     // sort the data
