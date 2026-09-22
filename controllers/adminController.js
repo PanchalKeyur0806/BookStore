@@ -1081,19 +1081,52 @@ export const averageOrderValueAnalytics = catchAsync(async (req, res, next) => {
 });
 
 export const customerAnalytics = catchAsync(async (req, res, next) => {
+  // get start date and end date from query params
+  const { startDate, endDate } = req.query;
+
+  // check that start date or end date exists or not
+  if (!startDate || !endDate) {
+    return next(new AppError("Start date and end date are required", 400));
+  }
+
+  // convert strings to date
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  // check that start and end date is number or not
+  if (isNaN(start) || isNaN(end)) {
+    return next(
+      new AppError("Please provide valid start date and end date", 400),
+    );
+  }
+
+  // check that end date should be larger than start date
+  if (end < start) {
+    return next(new AppError("End date should be larger than start date", 400));
+  }
+
+  // get the one year
+  const oneYearlater = new Date(start);
+  oneYearlater.setFullYear(oneYearlater.getFullYear() + 1);
+
+  // check that end date is larger than valid date range
+  if (end > oneYearlater) {
+    return next(new AppError("The date range cannot exceed one year", 400));
+  }
+
   const userAnalytics = await User.aggregate([
     {
       $group: {
         _id: {
-          // $month: "$createdAt",
-          $dateToString: {
-            format: "%B",
+          $dateTrunc: {
             date: "$createdAt",
+            unit: "month",
           },
         },
         totalUsers: { $sum: 1 },
       },
     },
+
     {
       $project: {
         _id: 0,
@@ -1101,12 +1134,44 @@ export const customerAnalytics = catchAsync(async (req, res, next) => {
         totalUsers: 1,
       },
     },
+    {
+      $densify: {
+        field: "month",
+        range: {
+          step: 1,
+          unit: "month",
+          bounds: [start, end],
+        },
+      },
+    },
+    {
+      $fill: {
+        sortBy: { month: 1 },
+        output: {
+          totalUsers: { value: 0 },
+        },
+      },
+    },
+    {
+      $project: {
+        month: {
+          $dateToString: {
+            date: "$month",
+            format: "%Y-%m",
+          },
+        },
+        totalUsers: 1,
+      },
+    },
+    {
+      $sort: { month: 1 },
+    },
   ]);
 
   const topPayingCustomers = await Order.aggregate([
     {
       $match: {
-        orderStatus: { $ne: "cancelled" },
+        orderStatus: "delivered",
       },
     },
     {
@@ -1114,6 +1179,14 @@ export const customerAnalytics = catchAsync(async (req, res, next) => {
         _id: "$user",
         totalOrders: { $sum: 1 },
         totalMoneySpent: { $sum: "$totalPrice" },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        customerId: "$_id",
+        totalOrders: 1,
+        totalMoneySpent: 1,
       },
     },
     {
