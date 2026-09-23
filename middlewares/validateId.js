@@ -10,9 +10,7 @@ export const validateId = (paramId) => {
     // check that id is valid, if not return the error message
     const isValid = mongoose.Types.ObjectId.isValid(id);
     if (!isValid) {
-      return next(
-        new AppError("Invalid Id, please enter correct email id", 400),
-      );
+      return next(new AppError("Invalid Id, please enter correct id", 400));
     }
 
     // else proceed,

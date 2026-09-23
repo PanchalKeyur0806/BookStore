@@ -16,6 +16,7 @@ import {
   mutationLimiter,
   generalRateLimiter,
 } from "../middlewares/ratelimiter.js";
+import { validateId } from "../middlewares/validateId.js";
 
 const routes = express.Router({ mergeParams: true });
 
@@ -30,6 +31,12 @@ routes
 
 routes.get("/allReviews", getRateLimiter, restrictTo("admin"), getAllReviews);
 
-routes.get("/:bookId/me", getRateLimiter, restrictTo("user"), getOneReview);
+routes.get(
+  "/:bookId/me",
+  getRateLimiter,
+  validateId("bookId"),
+  restrictTo("user"),
+  getOneReview,
+);
 
 export default routes;

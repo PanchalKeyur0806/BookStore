@@ -18,6 +18,7 @@ import {
   mutationLimiter,
   generalRateLimiter,
 } from "../middlewares/ratelimiter.js";
+import { validateId } from "../middlewares/validateId.js";
 
 const router = express.Router();
 
@@ -38,6 +39,7 @@ router
   .get(getRateLimiter, getOneBook)
   .patch(
     mutationLimiter,
+    validateId("bookId"),
     uploads.single("coverImage"),
     protect,
     restrictTo("admin"),

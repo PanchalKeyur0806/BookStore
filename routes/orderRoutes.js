@@ -15,6 +15,7 @@ import { getAllOrders, getOneOrder } from "../controllers/orderController.js";
 import restrictTo from "../middlewares/protect.js";
 
 import { getRateLimiter, mutationLimiter } from "../middlewares/ratelimiter.js";
+import { validateId } from "../middlewares/validateId.js";
 
 const routes = express.Router();
 
@@ -48,6 +49,7 @@ routes.get(
 routes.get(
   "/order/:orderId",
   getRateLimiter,
+  validateId("orderId"),
   protect,
   restrictTo("user", "admin"),
   getOneOrder,

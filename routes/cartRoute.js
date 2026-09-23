@@ -9,6 +9,7 @@ import { protect } from "../controllers/authController.js";
 import restrictTo from "../middlewares/protect.js";
 
 import { getRateLimiter, mutationLimiter } from "../middlewares/ratelimiter.js";
+import { validateId } from "../middlewares/validateId.js";
 
 const router = express.Router();
 
@@ -17,6 +18,11 @@ router.use(restrictTo("user"));
 
 router.get("/getCart", getRateLimiter, getCart);
 router.post("/addToCart", mutationLimiter, addToCart);
-router.post("/removeBookFromCart/:bookId", mutationLimiter, removeBookFromCart);
+router.post(
+  "/removeBookFromCart/:bookId",
+  mutationLimiter,
+  validateId("bookId"),
+  removeBookFromCart,
+);
 
 export default router;
