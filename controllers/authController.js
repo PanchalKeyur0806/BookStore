@@ -39,16 +39,20 @@ const register = catchAsync(async (req, res, next) => {
 
   await createUser.save({ validateBeforeSave: false });
 
+  // if server is currerntly on local, then use env variable email, else use user email
+  const userEmail =
+    process.env.NODE_ENV === "production" ? email : process.env.USER_EMAIL;
+
   try {
     await sendEmail({
-      email: process.env.USER_EMAIL,
+      email: userEmail,
       subject: "Your otp",
       message: `how are you? here your otp ${otp} and your otp expiry is in 30 seconds`,
     });
   } catch (error) {
     await User.findByIdAndDelete(createUser._id);
     return next(
-      new AppError("failed to send an otp, please try again later", 400)
+      new AppError("failed to send an otp, please try again later", 400),
     );
   }
 
@@ -126,15 +130,19 @@ const resendOtp = catchAsync(async (req, res, next) => {
 
   await findUser.save({ validateBeforeSave: false });
 
+  // check if server is in production
+  const userEmail =
+    process.env.NODE_ENV === "production" ? email : process.env.USER_EMAIL;
+
   try {
     await sendEmail({
-      email: process.env.USER_EMAIL,
+      email: userEmail,
       subject: "Your otp",
       message: `how are you? here your otp ${otp} and your otp expiry is in 30 seconds`,
     });
   } catch (error) {
     return next(
-      new AppError("failed to send an otp, please try again later", 400)
+      new AppError("failed to send an otp, please try again later", 400),
     );
   }
 
@@ -158,15 +166,15 @@ const login = catchAsync(async (req, res, next) => {
   // check the correct password
   const checkPassword = await findUser.comparePassword(
     password,
-    findUser.password
+    findUser.password,
   );
 
   if (!checkPassword) {
     return next(
       new AppError(
         "your password is incorrect, please enter correct password",
-        401
-      )
+        401,
+      ),
     );
   }
 
@@ -203,13 +211,16 @@ const forgotPassword = catchAsync(async (req, res, next) => {
   await findUser.save({ validateBeforeSave: false });
 
   const url = `${req.protocol}://${req.get(
-    "host"
+    "host",
   )}/auth/resetPassword/${resetToken}`;
   const message = `forget your password? please click this link to change your password ${url}`;
 
+  const userEmail =
+    process.env.NODE_ENV === "production" ? email : process.env.USER_EMAIL;
+
   try {
     await sendEmail({
-      email: process.env.USER_EMAIL,
+      email: userEmail,
       subject: "Forgot your password",
       message: message,
     });
@@ -217,8 +228,8 @@ const forgotPassword = catchAsync(async (req, res, next) => {
     return next(
       new AppError(
         "Error occured while sending email, please try again later",
-        400
-      )
+        400,
+      ),
     );
   }
 
@@ -291,8 +302,8 @@ const protect = catchAsync(async (req, res, next) => {
       return next(
         new AppError(
           "you are not verified, please verified first then try again",
-          403
-        )
+          403,
+        ),
       );
     }
 
