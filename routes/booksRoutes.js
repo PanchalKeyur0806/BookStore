@@ -29,6 +29,8 @@ router
   .get(getRateLimiter, getAllBooks)
   .post(
     mutationLimiter,
+    protect,
+    restrictTo("admin"),
     uploads.single("coverImage"),
     validateBooks,
     createBooks,
@@ -40,9 +42,9 @@ router
   .patch(
     mutationLimiter,
     validateId("bookId"),
-    uploads.single("coverImage"),
     protect,
     restrictTo("admin"),
+    uploads.single("coverImage"),
     updateBook,
   )
   .delete(protect, generalRateLimiter, restrictTo("admin"), deleteBook);

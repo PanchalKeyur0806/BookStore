@@ -39,7 +39,7 @@ const me = catchAsync(async (req, res, next) => {
   const { id } = req.user;
   if (!id) {
     return next(
-      new AppError("your are not logged in please login to get access", 400)
+      new AppError("your are not logged in please login to get access", 400),
     );
   }
 

@@ -19,7 +19,7 @@ const router = express.Router();
 
 router.use(protect);
 
-router.get("/getAllOrders", getRateLimiter, restrictTo("user"), getUserOrders);
+router.get("/getAllOrders", getRateLimiter, protect, getUserOrders);
 router.get("/allusers", getRateLimiter, restrictTo("admin"), allUser);
 router.post("/favBooks", mutationLimiter, userFavBooks);
 router.get("/me", getRateLimiter, protect, me);
