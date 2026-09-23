@@ -16,10 +16,10 @@ const router = express.Router();
 router.use(protect);
 router.use(restrictTo("user"));
 
-router.get("/getCart", getRateLimiter, getCart);
-router.post("/addToCart", mutationLimiter, addToCart);
+router.get("/", getRateLimiter, getCart);
+router.post("/add", mutationLimiter, addToCart);
 router.post(
-  "/removeBookFromCart/:bookId",
+  "/remove/:bookId",
   mutationLimiter,
   validateId("bookId"),
   removeBookFromCart,

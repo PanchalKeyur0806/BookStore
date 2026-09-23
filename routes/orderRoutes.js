@@ -39,13 +39,7 @@ routes.get(
 );
 
 // order details
-routes.get(
-  "/allorders",
-  getRateLimiter,
-  protect,
-  restrictTo("admin"),
-  getAllOrders,
-);
+routes.get("/all", getRateLimiter, protect, restrictTo("admin"), getAllOrders);
 routes.get(
   "/order/:orderId",
   getRateLimiter,

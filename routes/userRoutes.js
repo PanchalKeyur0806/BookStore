@@ -19,11 +19,17 @@ const router = express.Router();
 
 router.use(protect);
 
-router.get("/getAllOrders", getRateLimiter, protect, getUserOrders);
-router.get("/allusers", getRateLimiter, restrictTo("admin"), allUser);
+router.get("/orders", getRateLimiter, getUserOrders);
+router.get("/all", getRateLimiter, restrictTo("admin"), allUser);
 router.post("/favBooks", mutationLimiter, userFavBooks);
 router.get("/me", getRateLimiter, protect, me);
 router.patch("/updateMe", mutationLimiter, protect, updateUserInfo);
-router.get("/:userId", validateId("userId"), getRateLimiter, getUser);
+router.get(
+  "/:userId",
+  getRateLimiter,
+  validateId("userId"),
+  restrictTo("admin"),
+  getUser,
+);
 
 export default router;

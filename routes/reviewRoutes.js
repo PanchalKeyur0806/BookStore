@@ -29,7 +29,7 @@ routes
   .patch(mutationLimiter, restrictTo("user"), updateReview)
   .delete(generalRateLimiter, restrictTo("user"), deleteReview);
 
-routes.get("/allReviews", getRateLimiter, restrictTo("admin"), getAllReviews);
+routes.get("/all", getRateLimiter, restrictTo("admin"), getAllReviews);
 
 routes.get(
   "/:bookId/me",
