@@ -9,15 +9,16 @@ import Cart from "../models/cartModel.js";
 import Reservation from "../models/reservationModel.js";
 import Order from "../models/orderModel.js";
 
-dotenv.config({path: "../.env"})
+dotenv.config({ path: ".env" });
 
+console.log(process.env.DB_STRING);
 mongoose
   .connect(process.env.DB_STRING)
   .then(() => {
     console.log("Database connected successfully");
   })
   .catch((error) =>
-    console.log(`error while connecting the database ${error}`)
+    console.log(`error while connecting the database ${error}`),
   );
 
 const worker = new Worker(
@@ -85,7 +86,7 @@ const worker = new Worker(
         },
         {
           attempts: 3,
-        }
+        },
       );
 
       // delete the cart and reservation
@@ -101,7 +102,7 @@ const worker = new Worker(
       host: process.env.REDIS_HOST,
       port: parseInt(process.env.REDIS_PORT) || 6379,
     },
-  }
+  },
 );
 
 worker.on("completed", (job) => {
