@@ -96,10 +96,20 @@ const getAllBooks = catchAsync(async (req, res, next) => {
     return next(new AppError("Books not found", 404));
   }
 
+  const totalItems = await Books.countDocuments(queryObj);
+  const totalPages = Math.ceil(totalItems / limit);
+  const hasNextPage = page < totalPages;
+
   //   return the response
   res.status(200).json({
     status: "success",
     length: allBooks.length,
+    pagination: {
+      totalItems,
+      totalPages,
+      currentPage: page,
+      hasNextPage,
+    },
     message: allBooks.length > 0 ? "all books found" : "books not found",
     data: allBooks,
   });

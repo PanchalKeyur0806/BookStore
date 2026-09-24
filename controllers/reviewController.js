@@ -36,9 +36,19 @@ const getAllReviews = catchAsync(async (req, res, next) => {
     .skip(skip)
     .limit(limit);
 
+  const totalItems = await Review.countDocuments(queryObj);
+  const totalPages = Math.ceil(totalItems / limit);
+  const hasNextPage = page < totalPages;
+
   res.status(200).json({
     status: "success",
     message: "reviews found successfully",
+    pagination: {
+      totalItems,
+      totalPages,
+      currentPage: page,
+      hasNextPage,
+    },
     length: reviews.length,
     data: reviews,
   });
@@ -138,9 +148,19 @@ const getAllBooksReviews = catchAsync(async (req, res, next) => {
     .skip(skip)
     .limit(limit);
 
+  const totalItems = await Review.countDocuments(queryObj);
+  const totalPages = Math.ceil(totalItems / limit);
+  const hasNextPage = page < totalPages;
+
   res.status(200).json({
     status: "success",
     length: reviews.length,
+    pagination: {
+      totalItems,
+      totalPages,
+      currentPage: page,
+      hasNextPage,
+    },
     data: reviews,
   });
 });

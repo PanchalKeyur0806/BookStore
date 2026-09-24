@@ -25,6 +25,10 @@ const getAllOrders = catchAsync(async (req, res, next) => {
 
   const allOrders = await Order.find().sort(sortKey).skip(skip).limit(limit);
 
+  const totalItems = await Order.countDocuments();
+  const totalPages = Math.ceil(totalItems / limit);
+  const hasNextPage = page < totalPages;
+
   res.status(200).json({
     status: "success",
     length: allOrders.length,
@@ -32,6 +36,12 @@ const getAllOrders = catchAsync(async (req, res, next) => {
       allOrders.length > 0
         ? "all orders found successfully"
         : "orders not found",
+    pagination: {
+      totalItems,
+      totalPages,
+      currentPage: page,
+      hasNextPage,
+    },
     data: allOrders,
   });
 });

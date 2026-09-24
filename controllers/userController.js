@@ -45,9 +45,19 @@ const allUser = catchAsync(async (req, res, next) => {
     .skip(skip)
     .limit(limit);
 
+  const totalItems = await User.countDocuments(queryObj);
+  const totalPages = Math.ceil(totalItems / limit);
+  const hasNextPage = page < totalPages;
+
   res.status(200).json({
     status: "success",
     length: allUser.length,
+    pagination: {
+      totalItems,
+      totalPages,
+      currentPage: page,
+      hasNextPage,
+    },
     message:
       allUser.length > 0 ? "all users found successfully" : "users not found",
     allUser,
