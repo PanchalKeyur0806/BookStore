@@ -101,6 +101,11 @@ export const getDashboard = catchAsync(async (req, res, next) => {
               count: { $sum: 1 },
             },
           },
+          {
+            $project: {
+              _id: 0,
+            },
+          },
         ],
 
         // total sales  in this year
@@ -116,6 +121,11 @@ export const getDashboard = catchAsync(async (req, res, next) => {
               _id: null,
               total: { $sum: "$totalPrice" },
               count: { $sum: 1 },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
             },
           },
         ],
@@ -135,6 +145,14 @@ export const getDashboard = catchAsync(async (req, res, next) => {
               },
               sales: { $sum: "$totalPrice" },
               count: { $sum: 1 },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              date: "$_id",
+              sales: 1,
+              count: 1,
             },
           },
         ],
@@ -207,6 +225,13 @@ export const getDashboard = catchAsync(async (req, res, next) => {
             $group: {
               _id: "$role",
               count: { $sum: 1 },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              role: "$_id",
+              count: 1,
             },
           },
         ],
@@ -488,6 +513,10 @@ export const bookAnalytics = catchAsync(async (req, res, next) => {
 
 // controller for tracking every book performance
 export const bookPerformance = catchAsync(async (req, res, nex) => {
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+
   const allBooksPerofrmance = await Books.aggregate([
     // get the book analytics for all books
     // total number of copy sold
@@ -631,11 +660,28 @@ export const bookPerformance = catchAsync(async (req, res, nex) => {
         },
       },
     },
+    {
+      $facet: {
+        data: [{ $skip: skip }, { $limit: limit }],
+        metadata: [{ $count: "totalItems" }],
+      },
+    },
   ]);
+
+  const totalItems = allBooksPerofrmance[0].metadata[0].totalItems;
+  const totalPage = Math.ceil(totalItems / limit);
+  const currentPage = page;
+  const hasNextPage = page < totalPage;
 
   res.status(200).json({
     status: "success",
-    data: allBooksPerofrmance,
+    pagination: {
+      totalItems,
+      totalPage,
+      currentPage,
+      hasNextPage,
+    },
+    data: allBooksPerofrmance[0].data,
   });
 });
 
@@ -712,6 +758,13 @@ export const categorySalesTrend = catchAsync(async (req, res, next) => {
 
   if (end <= start) {
     return next(new AppError("End date must be after start date", 400));
+  }
+
+  const oneYearLater = new Date(start);
+  oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+
+  if (end > oneYearLater) {
+    return next(new AppError("Date range cannot be more than 1 year", 400));
   }
 
   const categoryTrendAnalytics = await Order.aggregate([
@@ -810,6 +863,10 @@ export const categorySalesTrend = catchAsync(async (req, res, next) => {
 });
 
 export const bookRatingDistribution = catchAsync(async (req, res, next) => {
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+
   const bookRatingDistributionAnalytic = await Review.aggregate([
     {
       $group: {
@@ -852,11 +909,27 @@ export const bookRatingDistribution = catchAsync(async (req, res, next) => {
         oneStarRating: 1,
       },
     },
+    {
+      $facet: {
+        data: [{ $skip: skip }, { $limit: limit }],
+        metadata: [{ $count: "totalItems" }],
+      },
+    },
   ]);
+
+  const totalItems = bookRatingDistributionAnalytic[0].metadata[0].totalItems;
+  const totalPages = Math.ceil(totalItems / limit);
+  const hasNextPage = page < totalPages;
 
   res.status(200).json({
     status: "success",
-    data: bookRatingDistributionAnalytic,
+    pagination: {
+      totalItems,
+      totalPages,
+      currentPage: page,
+      hasNextPage,
+    },
+    data: bookRatingDistributionAnalytic[0].data,
   });
 });
 
@@ -1308,6 +1381,11 @@ export const customerAnalytics = catchAsync(async (req, res, next) => {
 });
 
 export const deadMovingStocks = catchAsync(async (req, res, next) => {
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 2;
+
+  const skip = (page - 1) * limit;
+
   const deadMovingStockAnalytics = await Books.aggregate([
     {
       $lookup: {
@@ -1369,11 +1447,28 @@ export const deadMovingStocks = catchAsync(async (req, res, next) => {
         totalSold: 1,
       },
     },
+    {
+      $facet: {
+        data: [{ $skip: skip }, { $limit: limit }],
+        metadata: [{ $count: "totalItems" }],
+      },
+    },
   ]);
+
+  const totalItems = deadMovingStockAnalytics[0].metadata[0]?.totalItems || 0;
+  const totalPages = Math.ceil(totalItems / limit);
+  const currentPage = page;
+  const hasNextPage = page < totalPages;
 
   res.status(200).json({
     status: "success",
-    data: deadMovingStockAnalytics,
+    data: deadMovingStockAnalytics[0].data,
+    pagination: {
+      totalItems,
+      totalPages,
+      currentPage,
+      hasNextPage,
+    },
   });
 });
 
@@ -1459,19 +1554,29 @@ export const paymentAnalytics = catchAsync(async (req, res, next) => {
         failedPayments: 1,
         totalPayments: 1,
         successRate: {
-          $multiply: [
+          $round: [
             {
-              $divide: ["$successfullPayments", "$totalPayments"],
+              $multiply: [
+                {
+                  $divide: ["$successfullPayments", "$totalPayments"],
+                },
+                100,
+              ],
             },
-            100,
+            2,
           ],
         },
         failedRate: {
-          $multiply: [
+          $round: [
             {
-              $divide: ["$failedPayments", "$totalPayments"],
+              $multiply: [
+                {
+                  $divide: ["$failedPayments", "$totalPayments"],
+                },
+                100,
+              ],
             },
-            100,
+            2,
           ],
         },
       },
