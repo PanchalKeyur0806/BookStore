@@ -16,30 +16,6 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
 
-  worker1:
-    build:
-      context: ./
-    container_name: emailWorker
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-    command: ["node", "workers/emailWorker.js"]
-    depends_on:
-      - redis
-
-  worker2:
-    build:
-      context: ./
-    container_name: orderWorker
-    environment:
-      - DB_STRING=mongodb://mongo:27017/BookStores
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-    command: ["node", "workers/orderWorker.js"]
-    depends_on:
-      - mongo
-      - redis
-
   mongo:
     container_name: mongo
     image: mongo

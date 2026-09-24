@@ -1,5 +1,3 @@
-import dotenv from "dotenv";
-import mongoose from "mongoose";
 import { emailQueue } from "../queues/emailQueue.js";
 import { Worker } from "bullmq";
 
@@ -8,18 +6,6 @@ import User from "../models/userModel.js";
 import Cart from "../models/cartModel.js";
 import Reservation from "../models/reservationModel.js";
 import Order from "../models/orderModel.js";
-
-dotenv.config({ path: ".env" });
-
-console.log(process.env.DB_STRING);
-mongoose
-  .connect(process.env.DB_STRING)
-  .then(() => {
-    console.log("Database connected successfully");
-  })
-  .catch((error) =>
-    console.log(`error while connecting the database ${error}`),
-  );
 
 const worker = new Worker(
   "order-processing",

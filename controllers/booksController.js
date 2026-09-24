@@ -44,7 +44,7 @@ const createBooks = catchAsync(async (req, res, next) => {
   });
   if (!createBook || (createBook === undefined && createBook === null)) {
     return next(
-      new AppError("books is not created yet, please try again later", 400)
+      new AppError("books is not created yet, please try again later", 400),
     );
   }
 
@@ -91,7 +91,7 @@ const getOneBook = catchAsync(async (req, res, next) => {
   if (!bookKey) {
     if (!bookId || typeof bookId !== "string") {
       return next(
-        new AppError("Book id not found, please provide bookId in params", 400)
+        new AppError("Book id not found, please provide bookId in params", 400),
       );
     }
 
@@ -122,7 +122,7 @@ const updateBook = catchAsync(async (req, res, next) => {
   const { bookId } = req.params;
   if (!bookId || typeof bookId !== "string") {
     return next(
-      new AppError("Book id not found, please provide bookId in params", 400)
+      new AppError("Book id not found, please provide bookId in params", 400),
     );
   }
 
@@ -163,7 +163,7 @@ const deleteBook = catchAsync(async (req, res, next) => {
   const { bookId } = req.params;
   if (!bookId || typeof bookId !== "string") {
     return next(
-      new AppError("Book id not found, please provide bookId in params", 400)
+      new AppError("Book id not found, please provide bookId in params", 400),
     );
   }
 
@@ -171,7 +171,7 @@ const deleteBook = catchAsync(async (req, res, next) => {
   const removeBook = await Books.findByIdAndUpdate(
     bookId,
     { isDeleted: true },
-    { new: true }
+    { new: true },
   );
   if (!removeBook) {
     return next(new AppError("Book not found", 404));
