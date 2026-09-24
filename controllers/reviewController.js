@@ -8,12 +8,33 @@ import client from "../config/redisClient.js";
 
 // get all the reviews
 const getAllReviews = catchAsync(async (req, res, next) => {
-  const features = new AppFeatures(Review.find(), req.query)
-    .filter()
-    .sort()
-    .limitFields()
-    .pagination();
-  const reviews = await features.query;
+  const { sort, msg } = req.query;
+
+  const queryObj = {};
+
+  if (msg) {
+    queryObj.review = { $regex: msg, $options: "i" };
+  }
+
+  const sortOptions = {
+    new: "-createdAt",
+    old: "createdAt",
+  };
+
+  const sortKey = sortOptions[sort] || sortOptions.new;
+
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+
+  if (limit > 100) {
+    limit = 100;
+  }
+
+  const reviews = await Review.find(queryObj)
+    .sort(sortKey)
+    .skip(skip)
+    .limit(limit);
 
   res.status(200).json({
     status: "success",
@@ -83,20 +104,43 @@ const createReview = catchAsync(async (req, res, next) => {
 // get all books review
 const getAllBooksReviews = catchAsync(async (req, res, next) => {
   const { bookId } = req.params;
+  const { sort, msg } = req.query;
 
   if (!bookId) {
-    return next(new AppError("Provide Book Id", 404));
+    return next(new AppError("Please provide bookId", 400));
   }
 
-  const reviews = await Review.find({ book: bookId });
+  const queryObj = {
+    book: new mongoose.Types.ObjectId(bookId),
+  };
 
-  if (reviews.length === 0) {
-    return next(new AppError("Reviews not found", 404));
+  if (msg) {
+    queryObj.review = { $regex: msg, $options: "i" };
   }
+
+  const sortOptions = {
+    new: "-createdAt",
+    old: "createdAt",
+  };
+
+  const sortKey = sortOptions[sort] || sortOptions.new;
+
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+
+  if (limit > 100) {
+    limit = 100;
+  }
+
+  const reviews = await Review.find(queryObj)
+    .sort(sortKey)
+    .skip(skip)
+    .limit(limit);
 
   res.status(200).json({
     status: "success",
-    length: reviews,
+    length: reviews.length,
     data: reviews,
   });
 });
@@ -112,7 +156,7 @@ const updateReview = catchAsync(async (req, res, next) => {
 
   const review = await Review.findOneAndUpdate(
     { book: bookId, user: id },
-    req.body
+    req.body,
   );
 
   res.status(200).json({
