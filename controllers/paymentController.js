@@ -43,7 +43,7 @@ const createCheckoutSession = catchAsync(async (req, res, next) => {
     line_items,
     customer_email: user.email,
     success_url: `${req.protocol}://${req.get(
-      "host"
+      "host",
     )}/orders/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${req.protocol}://${req.get("host")}/orders/cancel`,
   });
@@ -78,7 +78,7 @@ const refundPaymnet = catchAsync(async (req, res, next) => {
   });
   if (!createRefund) {
     return next(
-      new AppError("failed to create refund, please try again later", 404)
+      new AppError("failed to create refund, please try again later", 404),
     );
   }
 
@@ -125,7 +125,7 @@ const webhook = catchAsync(async (req, res, next) => {
     event = stripe.webhooks.constructEvent(
       req.body,
       sig,
-      process.env.STRIPE_WEBHOOK
+      process.env.STRIPE_WEBHOOK,
     );
   } catch (error) {
     console.log(`WEB HOOK error ${error}`);
@@ -163,7 +163,7 @@ const webhook = catchAsync(async (req, res, next) => {
               const cart = await Cart.findOne({ user: user._id });
               if (cart) {
                 console.log(
-                  "Session is expired - reservation will be cleaned up"
+                  "Session is expired - reservation will be cleaned up",
                 );
               }
             }
@@ -184,7 +184,7 @@ const webhook = catchAsync(async (req, res, next) => {
 
         if (paymentIntent.customer) {
           const customer = await stripe.customers.retrieve(
-            paymentIntent.customer
+            paymentIntent.customer,
           );
 
           user = await User.findOne({ user: user.email });
@@ -199,7 +199,7 @@ const webhook = catchAsync(async (req, res, next) => {
             await Reservation.findByIdAndDelete(reservation._id);
             console.log(
               "Reservation cleaned up for canceled payment:",
-              reservation._id
+              reservation._id,
             );
           }
         }

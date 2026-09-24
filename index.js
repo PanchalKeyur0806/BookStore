@@ -12,6 +12,10 @@ import reviewRoutes from "./routes/reviewRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import wishlistRoutes from "./routes/wishlistRoute.js";
 
+// import workers
+import "./workers/orderWorker.js";
+import "./workers/emailWorker.js";
+
 // global error handler
 import errorHandler from "./controllers/errorController.js";
 

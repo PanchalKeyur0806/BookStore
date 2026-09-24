@@ -258,16 +258,6 @@ Without this, Stripe webhook events will not be forwarded to your local applicat
 npm run dev
 ```
 
-### Run Workers for Queued Jobs
-
-Open a separate terminal:
-
-```bash
-cd workers
-node emailWorker.js
-node orderWorker.js
-```
-
 ---
 
 ## 🔮 Future Improvements

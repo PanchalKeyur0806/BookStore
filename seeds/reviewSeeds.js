@@ -38,7 +38,7 @@ async function generateReview() {
 async function seedReviews() {
   try {
     const fakeReviews = await Promise.all(
-      Array.from({ length: 20 }, () => generateReview())
+      Array.from({ length: 20 }, () => generateReview()),
     );
 
     await Review.insertMany(fakeReviews);

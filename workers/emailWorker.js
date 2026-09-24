@@ -1,8 +1,5 @@
-import dotenv from "dotenv";
 import { Worker } from "bullmq";
 import sendEmail from "../utils/nodemailer.js";
-
-dotenv.config({ path: ".env" });
 
 const emailWorker = new Worker(
   "email-queue",
