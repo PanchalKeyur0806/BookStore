@@ -231,6 +231,7 @@ const webhook = catchAsync(async (req, res, next) => {
       if (order) {
         order.orderStatus = "cancelled";
         order.paymentInfo.stripePaymentId = "cancelled";
+        order.paymentInfo.status = "cancelled";
 
         await order.save();
         console.log("order have been saved ", order._id);
