@@ -1,21 +1,33 @@
 import { Worker } from "bullmq";
 import sendEmail from "../utils/nodemailer.js";
 
+import orderCreatedTemplate from "../utils/emailTemplates/orderTemplate.js";
+
 const emailWorker = new Worker(
   "email-queue",
   async (job) => {
     try {
+      const order = job.data.data;
+
       // check that server is in production mode
       const userEmail =
         process.env.NODE_ENV === "production"
           ? job.data.data.shippingAddress.email
           : process.env.USER_EMAIL;
 
+      const html = orderCreatedTemplate({
+        name: order.shippingAddress.name,
+        orderId: order._id,
+        totalQuantity: order.totalQuantity,
+        totalPrice: order.totalPrice,
+        shippingAddress: order.shippingAddress,
+      });
+
       await sendEmail({
         email: userEmail,
-        subject: "your order have successfully created",
-        message:
-          "your order have been created successfully, please don't forget to rate our services and books, if you have any question feel free to ask on our online service center",
+        subject: "Your BookStore order has been created",
+        message: `Your order ${order._id} has been successfully created. Total amount: ₹${order.totalPrice}.`,
+        html,
       });
     } catch (error) {
       console.log("failed to send email to client");

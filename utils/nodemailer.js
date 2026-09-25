@@ -17,6 +17,7 @@ const sendEmail = (options) => {
     to: options.email || process.env.USER_EMAIL,
     subject: options.subject,
     text: options.message,
+    html: options.html,
   };
 
   transporter.sendMail(mailoptions, (error, info) => {

@@ -8,7 +8,8 @@ import AppError from "../utils/AppError.js";
 
 import sendEmail from "../utils/nodemailer.js";
 import generateOtp from "../utils/otpGenerator.js";
-import { application } from "express";
+import verificationOtpTemplate from "../utils/emailTemplates/verificationOTPTemplate.js";
+import forgotPasswordTemplate from "../utils/emailTemplates/forgetPasswordTemplate.js";
 
 const signToken = (userId) => {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET_KEY, {
@@ -43,11 +44,18 @@ const register = catchAsync(async (req, res, next) => {
   const userEmail =
     process.env.NODE_ENV === "production" ? email : process.env.USER_EMAIL;
 
+  const html = verificationOtpTemplate({
+    name: createUser.name,
+    otp,
+    expiry: "30 seconds",
+  });
+
   try {
     await sendEmail({
       email: userEmail,
-      subject: "Your otp",
-      message: `how are you? here your otp ${otp} and your otp expiry is in 30 seconds`,
+      subject: "Verify your BookStore account",
+      message: `Your BookStore verification OTP is ${otp}. It expires in 30 seconds`,
+      html,
     });
   } catch (error) {
     await User.findByIdAndDelete(createUser._id);
@@ -134,11 +142,18 @@ const resendOtp = catchAsync(async (req, res, next) => {
   const userEmail =
     process.env.NODE_ENV === "production" ? email : process.env.USER_EMAIL;
 
+  const html = verificationOtpTemplate({
+    name: findUser.name,
+    otp,
+    expiry: "30 seconds",
+  });
+
   try {
     await sendEmail({
       email: userEmail,
-      subject: "Your otp",
-      message: `how are you? here your otp ${otp} and your otp expiry is in 30 seconds`,
+      subject: "Verify your BookStore account",
+      message: `Your verification OTP is ${otp}. This OTP will expire in 30 seconds.`,
+      html,
     });
   } catch (error) {
     return next(
@@ -218,11 +233,17 @@ const forgotPassword = catchAsync(async (req, res, next) => {
   const userEmail =
     process.env.NODE_ENV === "production" ? email : process.env.USER_EMAIL;
 
+  const html = forgotPasswordTemplate({
+    name: findUser.name,
+    resetUrl: url,
+  });
+
   try {
     await sendEmail({
       email: userEmail,
       subject: "Forgot your password",
       message: message,
+      html,
     });
   } catch (error) {
     return next(
