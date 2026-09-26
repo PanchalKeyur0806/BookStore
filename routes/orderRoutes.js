@@ -3,7 +3,6 @@ import express from "express";
 import makeReservation from "../middlewares/makeReservation.js";
 
 import {
-  createAndSendInvoices,
   createCheckoutSession,
   refundPaymnet,
   success,
@@ -27,8 +26,6 @@ routes.post(
   makeReservation,
   createCheckoutSession,
 );
-
-routes.get("/getInvoices", getRateLimiter, protect, createAndSendInvoices);
 
 routes.get(
   "/refundPayment/:stripePaymentId",
