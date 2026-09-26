@@ -139,6 +139,8 @@ PORT=5000
 DB_STRING=your_mongodb_connection_string
 
 NODE_ENV=production/development
+CORS_ORIGIN=*
+
 
 JWT_SECRET_KEY=your_jwt_secret
 JWT_EXPIRES=your_jwt_expiry_time

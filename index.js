@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+import helmet from "helmet";
 
 // all routes
 import authRoutes from "./routes/authRoutes.js";
@@ -25,11 +26,19 @@ dotenv.config();
 
 const app = express();
 
+app.use(helmet());
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+  }),
+);
+
 // webhook for payment integration
 app.post("/webhook", express.raw({ type: "application/json" }), webhook);
 
 app.use(express.json());
-app.use(cors());
 
 app.use("/auth", authRoutes);
 app.use("/users", userRoutes);
