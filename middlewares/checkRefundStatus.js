@@ -31,8 +31,8 @@ const checkRefundStatus = catchAsync(async (req, res, next) => {
     );
   }
 
-  // only allows order to be refunded, when order status is delivered
-  if (order.orderStatus !== "delivered") {
+  // only allows order to be refunded, when order status is paid
+  if (order.orderStatus !== "paid") {
     return next(new AppError("This payment cannot be refunded", 400));
   }
 

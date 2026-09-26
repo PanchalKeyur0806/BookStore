@@ -11,7 +11,7 @@ function categoryCommonAggregation() {
   return [
     {
       $match: {
-        orderStatus: "delivered",
+        orderStatus: "paid",
       },
     },
     {
@@ -72,26 +72,13 @@ export const getDashboard = catchAsync(async (req, res, next) => {
         ],
 
         // total books
-        // !need some improvement
-        // **TODO:- this aggregation only calculates the total number of book sold, not the actual book
-        totalBooks: [
-          {
-            $group: {
-              _id: null,
-              total: { $sum: 1 },
-            },
-          },
-          {
-            $project: { _id: 0 },
-          },
-        ],
 
         // total sales this month
         monthlyTotal: [
           {
             $match: {
               createdAt: { $gte: startOfMonth },
-              orderStatus: "delivered",
+              orderStatus: "paid",
             },
           },
           {
@@ -113,7 +100,7 @@ export const getDashboard = catchAsync(async (req, res, next) => {
           {
             $match: {
               createdAt: { $gte: startOfYear },
-              orderStatus: "delivered",
+              orderStatus: "paid",
             },
           },
           {
@@ -135,7 +122,7 @@ export const getDashboard = catchAsync(async (req, res, next) => {
           {
             $match: {
               createdAt: { $gte: last30days },
-              orderStatus: "delivered",
+              orderStatus: "paid",
             },
           },
           {
@@ -159,7 +146,7 @@ export const getDashboard = catchAsync(async (req, res, next) => {
 
         //   top book
         topBook: [
-          { $match: { orderStatus: "delivered" } },
+          { $match: { orderStatus: "paid" } },
           { $unwind: "$items" },
           {
             $group: {
@@ -249,7 +236,7 @@ export const getDashboard = catchAsync(async (req, res, next) => {
         ],
 
         pendingOrders: [
-          { $match: { orderStatus: { $in: ["pending", "paid"] } } },
+          { $match: { orderStatus: "pending" } },
           { $count: "count" },
         ],
       },
@@ -393,7 +380,7 @@ export const bookAnalytics = catchAsync(async (req, res, next) => {
   const bookSaleAnalytics = await Order.aggregate([
     {
       $match: {
-        orderStatus: "delivered",
+        orderStatus: "paid",
       },
     },
     {
@@ -528,7 +515,7 @@ export const bookPerformance = catchAsync(async (req, res, nex) => {
         pipeline: [
           {
             $match: {
-              orderStatus: "delivered",
+              orderStatus: "paid",
             },
           },
           {
@@ -770,7 +757,7 @@ export const categorySalesTrend = catchAsync(async (req, res, next) => {
   const categoryTrendAnalytics = await Order.aggregate([
     {
       $match: {
-        orderStatus: "delivered",
+        orderStatus: "paid",
         createdAt: { $gte: start, $lte: end },
       },
     },
@@ -1129,10 +1116,10 @@ export const averageOrderValueAnalytics = catchAsync(async (req, res, next) => {
   }
 
   const avgOrderAnalytic = await Order.aggregate([
-    // find the orders that have been delivered and should be in range of startDate and endDate
+    // find the orders that have been paid and should be in range of startDate and endDate
     {
       $match: {
-        orderStatus: "delivered",
+        orderStatus: "paid",
         createdAt: { $gte: start, $lte: end },
       },
     },
@@ -1302,7 +1289,7 @@ export const customerAnalytics = catchAsync(async (req, res, next) => {
   const topPayingCustomers = await Order.aggregate([
     {
       $match: {
-        orderStatus: "delivered",
+        orderStatus: "paid",
       },
     },
     {
@@ -1332,7 +1319,7 @@ export const customerAnalytics = catchAsync(async (req, res, next) => {
 
   const returningCustomers = await Order.aggregate([
     {
-      $match: { orderStatus: { $eq: "delivered" } },
+      $match: { orderStatus: { $eq: "paid" } },
     },
     {
       $group: {
@@ -1394,7 +1381,7 @@ export const deadMovingStocks = catchAsync(async (req, res, next) => {
         pipeline: [
           {
             $match: {
-              orderStatus: "delivered",
+              orderStatus: "paid",
               createdAt: {
                 $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
               },

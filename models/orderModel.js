@@ -44,7 +44,7 @@ const orderSchema = mongoose.Schema(
 
     orderStatus: {
       type: String,
-      enum: ["pending", "paid", "shipped", "delivered", "cancelled"],
+      enum: ["pending", "paid", "cancelled"],
       default: "pending",
     },
 
@@ -68,7 +68,7 @@ const orderSchema = mongoose.Schema(
   {
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
-  }
+  },
 );
 
 const Order = mongoose.model("Order", orderSchema);
