@@ -1,0 +1,746 @@
+# auth.yaml
+#
+# Authentication-related API routes for the BookStore REST API.
+#
+# This file contains Path Item Objects that can be referenced
+# individually from the root openapi.yaml file.
+#
+# Example:
+#
+# paths:
+#   /auth/register:
+#     $ref: "./auth.yaml#/register"
+#
+#   /auth/login:
+#     $ref: "./auth.yaml#/login"
+
+register:
+  post:
+    operationId: registerUser
+    security: []
+    tags:
+      - auth
+
+    summary: Register a new user
+
+    description: |
+      Creates a new user account using the provided personal information.
+
+      After successful registration, an OTP is generated and sent to the
+      user's email address. The user must verify this OTP using the
+      `/auth/verifyOtp` endpoint before the email address is considered verified.
+
+      This endpoint is publicly accessible and does not require authentication.
+
+      ### Registration flow
+
+      1. Client submits the user's registration information.
+      2. Server validates the registration data.
+      3. A new user account is created.
+      4. An OTP is generated and sent to the provided email address.
+      5. The client uses `/auth/verifyOtp` to verify the email address.
+
+    requestBody:
+      required: true
+      description: |
+        Information required to create a new user account.
+      content:
+        application/json:
+          schema:
+            $ref: "./schema.yaml#/components/schemas/RegisterUserRequest"
+
+          example:
+            name: "Panchal Keyur"
+            email: "panchalkeyur.dev@gmail.com"
+            password: "hello-1234"
+            dateOfBirth: "2005-06-08"
+            phoneNumber: 1234567890
+            gender: "male"
+            address:
+              line: "vastral"
+              city: "amdavad"
+              state: "guj"
+              zipCode: 382418
+              country: "ind"
+              street: "Dakor"
+
+    responses:
+      "201":
+        description: |
+          User registered successfully.
+
+          An OTP has been sent to the user's email address for email
+          verification.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/RegisterUserResponse"
+
+            example:
+              status: "success"
+              message: "user is registered, otp is being sent to email for verification"
+              data:
+                name: "Panchal Keyur"
+                email: "stealth.killer.119@gmail.com"
+                isEmailVerified: false
+                faviourites: []
+                role: "user"
+                dateOfBirth: "2005-06-08T00:00:00.000Z"
+                phoneNumber: 1234567890
+                gender: "male"
+                address:
+                  line: "vastral"
+                  street: "Dakor"
+                  city: "amdavad"
+                  state: "guj"
+                  zipCode: 382418
+                  country: "ind"
+                isActive: true
+                totalOrderes: 0
+                totalSpent: 0
+                _id: "6ab8c6b4deb5c92fda07308a"
+                cart: []
+                createdAt: "2026-09-27T07:33:08.757Z"
+                updatedAt: "2026-09-27T07:33:08.757Z"
+
+      "400":
+        description: |
+          The registration request is invalid.
+
+          This response can occur when one or more registration fields
+          are missing or contain invalid values.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+
+            examples:
+              invalidName:
+                summary: Invalid name
+                value:
+                  status: "Error"
+                  message: "please enter correct name"
+
+              emptyName:
+                summary: Empty name
+                value:
+                  status: "Error"
+                  message: "please enter your name"
+
+              invalidEmail:
+                summary: Invalid email
+                value:
+                  status: "Error"
+                  message: "please provide valid email address"
+
+              emptyEmail:
+                summary: Empty email
+                value:
+                  status: "Error"
+                  message: "email field should not be empty"
+
+              invalidDateOfBirth:
+                summary: Invalid date of birth
+                value:
+                  status: "Error"
+                  message: "please enter your date of birth"
+
+              invalidPhoneNumber:
+                summary: Invalid phone number
+                value:
+                  status: "Error"
+                  message: "phoneNumber lenght must be 10 characters"
+
+              invalidGender:
+                summary: Invalid gender
+                value:
+                  status: "Error"
+                  message: "Invalid gender selection"
+
+              invalidAddress:
+                summary: Invalid address
+                value:
+                  status: "Error"
+                  message: "address field should not be empty"
+
+login:
+  post:
+    operationId: loginUser
+    security: []
+    tags:
+      - auth
+
+    summary: Log in to an account
+
+    description: |
+      Authenticates an existing user using their email address and password.
+
+      If the credentials are valid, the server returns a JWT access token.
+      The returned token can be supplied in the Authorization header when
+      accessing protected API endpoints.
+
+      ### Authentication flow
+
+      1. User submits their email address and password.
+      2. Server validates the credentials.
+      3. If valid, a JWT token is generated.
+      4. The client stores the JWT token.
+      5. The client sends the token with protected API requests.
+
+      ### Authorization header
+
+      Protected requests should include:
+
+          Authorization: Bearer <JWT_TOKEN>
+
+      This endpoint is publicly accessible and does not require an existing
+      authentication token.
+
+    requestBody:
+      required: true
+      description: |
+        Login credentials for an existing user account.
+      content:
+        application/json:
+          schema:
+            $ref: "./schema.yaml#/LoginRequest"
+
+          example:
+            email: "hello-1@gmail.com"
+            password: "hello-1234"
+
+    responses:
+      "200":
+        description: |
+          User authenticated successfully.
+
+          The response contains a JWT access token and the authenticated
+          user's information.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/LoginResponse"
+
+            example:
+              status: "success"
+              token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+              data:
+                address:
+                  line: "6 nilkanth row house"
+                  street: "vastral"
+                  city: "amdavad"
+                  state: "guj"
+                  zipCode: 382418
+                  country: "ind"
+                _id: "683aa9c34ae6c56e60594eb2"
+                name: "hello-1"
+                email: "hello-1@gmail.com"
+                isEmailVerified: true
+                role: "admin"
+                dateOfBirth: "2005-06-08T00:00:00.000Z"
+                phoneNumber: 1234567890
+                gender: "male"
+                isActive: true
+                totalOrderes: 0
+                totalSpent: 0
+                cart: []
+                createdAt: "2025-05-31T07:03:31.815Z"
+                updatedAt: "2025-05-31T07:03:31.815Z"
+                faviourites:
+                  - "6836a66013f0b230bee67c1f"
+                  - "683697c5c4efe00d7ca88e5a"
+
+      "400":
+        description: |
+          The login request is invalid.
+
+          The supplied email address or password does not satisfy the
+          request validation rules.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+
+            examples:
+              invalidEmail:
+                summary: Invalid email
+                value:
+                  status: "Error"
+                  message: "please provide valid email address"
+
+              emptyEmail:
+                summary: Empty email
+                value:
+                  status: "Error"
+                  message: "email field should not be empty"
+
+              invalidPassword:
+                summary: Invalid password
+                value:
+                  status: "Error"
+                  message: "please enter correct password"
+
+      "401":
+        description: |
+          Authentication failed because the supplied password is incorrect.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+
+            example:
+              status: "Error"
+              message: "your password is incorrect, please enter correct password"
+
+      "404":
+        description: |
+          No user exists with the provided email address.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+
+            example:
+              status: "Error"
+              message: "No user found"
+
+verifyOtp:
+  post:
+    operationId: verifyOtp
+    security: []
+    tags:
+      - auth
+
+    summary: Verify email OTP
+
+    description: |
+      Verifies the one-time password (OTP) that was sent to the user's
+      email address during registration.
+
+      When the OTP is valid, the user's email address is marked as verified
+      and a JWT access token is returned.
+
+      ### Verification flow
+
+      1. User registers using `/auth/register`.
+      2. Server sends an OTP to the registered email address.
+      3. User submits the OTP and email address to this endpoint.
+      4. Server validates the OTP.
+      5. The user's email is marked as verified.
+      6. A JWT access token is returned.
+
+      This endpoint is publicly accessible and does not require authentication.
+
+    requestBody:
+      required: true
+      description: |
+        Email address and OTP received by the user.
+      content:
+        application/json:
+          schema:
+            $ref: "./schema.yaml#/components/schemas/VerifyOtpRequest"
+
+          example:
+            otp: 123456
+            email: "panchalkeyur.dev@gmail.com"
+
+    responses:
+      "200":
+        description: |
+          OTP verified successfully.
+
+          The response contains a JWT access token and the verified
+          user's information.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/VerifyOtpResponse"
+
+            example:
+              status: "success"
+              message: "otp verified successfully"
+              token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+              data:
+                address:
+                  line: "near metro station, indiranagar"
+                  street: "10th main road"
+                  city: "bengaluru"
+                  state: "kar"
+                  zipCode: 560038
+                  country: "ind"
+                _id: "6abe528d92d30f6fb4097f64"
+                name: "Panchal Keyur"
+                email: "panchalkeyur.dev@gmail.com"
+                isEmailVerified: true
+                faviourites: []
+                role: "user"
+                dateOfBirth: "2005-06-08T00:00:00.000Z"
+                phoneNumber: 1234567890
+                gender: "male"
+                isActive: true
+                totalOrderes: 0
+                totalSpent: 0
+                cart: []
+                createdAt: "2026-10-01T12:31:09.871Z"
+                updatedAt: "2026-10-01T12:31:09.871Z"
+
+      "400":
+        description: |
+          The OTP is invalid or has expired.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+
+            examples:
+              expiredOtp:
+                summary: Expired OTP
+                value:
+                  status: "Error"
+                  message: "otp is expired"
+
+              invalidOtp:
+                summary: Invalid OTP
+                value:
+                  status: "Error"
+                  message: "please enter correct otp"
+
+      "404":
+        description: |
+          No user exists for the supplied email address.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+
+            example:
+              status: "Error"
+              message: "user does not exists"
+
+resendOtp:
+  post:
+    operationId: resendOtp
+    security: []
+    tags:
+      - auth
+
+    summary: Resend email verification OTP
+
+    description: |
+      Generates and sends a new one-time password (OTP) to the user's
+      registered email address.
+
+      This endpoint can be used when the original OTP has expired,
+      was not received, or is otherwise no longer usable.
+
+      The endpoint is publicly accessible and does not require
+      authentication.
+
+      A user whose email address has already been verified cannot request
+      another verification OTP.
+
+    requestBody:
+      required: true
+      description: |
+        The email address associated with the user account.
+      content:
+        application/json:
+          schema:
+            $ref: "./schema.yaml#/components/schemas/ResendOtpRequest"
+
+          example:
+            email: "panchalkeyur.dev@gmail.com"
+
+    responses:
+      "200":
+        description: |
+          A new OTP was successfully sent to the user's email address.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ResendOtpResponse"
+
+            example:
+              status: "success"
+              message: "otp is sent to email, please check your email"
+
+      "400":
+        description: |
+          The supplied email address is invalid, missing, or the user's
+          email address has already been verified.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+
+            examples:
+              invalidEmail:
+                summary: Invalid email
+                value:
+                  status: "Error"
+                  message: "please provide your email"
+
+              userVerified:
+                summary: User already verified
+                value:
+                  status: "Error"
+                  message: "user already verified"
+
+      "404":
+        description: |
+          No user exists with the provided email address.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+
+            example:
+              status: "Error"
+              message: "user not found"
+
+forgotPassword:
+  post:
+    operationId: forgotPassword
+    security:
+      - bearerAuth: []
+
+    tags:
+      - auth
+
+    summary: Request password reset email
+
+    description: |
+      Requests a password reset email for a user account.
+
+      The current implementation requires a valid JWT bearer token.
+      The email address is supplied in the request body and is used to
+      identify the account for which the password reset process is started.
+
+      The authenticated user must also have a verified email address.
+
+      ### Authentication
+
+      This endpoint requires:
+
+          Authorization: Bearer <JWT_TOKEN>
+
+      ### Password reset flow
+
+      1. Client authenticates using a JWT.
+      2. Client submits the account email address.
+      3. Server validates the JWT.
+      4. Server checks whether the user's email is verified.
+      5. Server sends a password reset email.
+      6. The email contains a password reset token.
+      7. The client uses the reset token with `/auth/resetpassword/{token}`.
+
+    requestBody:
+      required: true
+      description: |
+        Email address associated with the account whose password needs
+        to be reset.
+      content:
+        application/json:
+          schema:
+            $ref: "./schema.yaml#/components/schemas/ForgotPasswordRequest"
+
+          example:
+            email: "panchalkeyur.dev@gmail.com"
+
+    responses:
+      "200":
+        description: |
+          Password reset email was successfully sent.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ForgotPasswordResponse"
+
+            example:
+              status: "success"
+              message: "email send successfully"
+
+      "400":
+        description: |
+          The request failed because authentication information is missing
+          or the request body contains invalid data.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+
+            examples:
+              tokenNotFound:
+                summary: Token not found
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+
+              pleaseLogin:
+                summary: Missing authentication token
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+              missingEmail:
+                summary: Missing email
+                value:
+                  status: "Error"
+                  message: "please provide email address"
+
+              userNotFound:
+                summary: User not found
+                value:
+                  status: "Error"
+                  message: "user not found"
+
+      "403":
+        description: |
+          The authenticated user's email address has not been verified.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+
+            example:
+              status: "Error"
+              message: "you are not verified, please verified first then try again"
+
+      "404":
+        description: |
+          No user exists for the authenticated account.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+
+            example:
+              status: "Error"
+              message: "user not found, please register first"
+
+resetPassword:
+  post:
+    operationId: resetPassword
+    security:
+      - bearerAuth: []
+
+    tags:
+      - auth
+
+    summary: Reset user password
+
+    description: |
+      Changes the authenticated user's password using a password reset token.
+
+      The reset token is supplied as a path parameter and is expected to
+      have been provided to the user through the password reset email.
+
+      The current implementation also requires a valid JWT bearer token.
+
+      ### Authentication
+
+      This endpoint requires:
+
+          Authorization: Bearer <JWT_TOKEN>
+
+      ### Reset password flow
+
+      1. User requests a password reset.
+      2. Server sends a reset email containing a reset token.
+      3. Client extracts the reset token from the reset link.
+      4. Client sends the reset token in the URL.
+      5. Client sends the new password in the request body.
+      6. Server validates the JWT and reset token.
+      7. User's password is changed.
+
+    parameters:
+      - name: token
+        in: path
+        required: true
+
+        description: |
+          Password reset token sent to the user's email address.
+
+          This token identifies and authorizes the password reset operation.
+
+        schema:
+          type: string
+
+        example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.reset-token"
+
+    requestBody:
+      required: true
+      description: |
+        The new password that should replace the user's existing password.
+      content:
+        application/json:
+          schema:
+            $ref: "./schema.yaml#/components/schemas/ResetPasswordRequest"
+
+          example:
+            password: "hello-1234"
+
+    responses:
+      "200":
+        description: |
+          Password was successfully changed.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ResetPasswordResponse"
+
+            example:
+              status: "success"
+              message: "password chagned successfully"
+
+      "400":
+        description: |
+          The reset request is invalid or the required authentication
+          information was not supplied.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+
+            examples:
+              tokenNotFound:
+                summary: Token not found
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+
+              pleaseLogin:
+                summary: Missing authentication token
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+              missingPassword:
+                summary: Missing password
+                value:
+                  status: "Error"
+                  message: "please provide your password"
+
+      "403":
+        description: |
+          The authenticated user's email address has not been verified.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+
+            example:
+              status: "Error"
+              message: "you are not verified, please verified first then try again"
+
+      "404":
+        description: |
+          No user exists for the authenticated account.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+
+            example:
+              status: "Error"
+              message: "user not found, please register first"

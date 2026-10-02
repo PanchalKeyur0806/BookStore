@@ -3,852 +3,124 @@ openapi: 3.1.0
 info:
   title: BookStore REST API
   version: 1.0.0
-  description: REST API for an online bookstore.
+  description: |
+    REST API for an online bookstore.
+
+    This API provides authentication, user management, book management,
+    cart, favourites, orders, and other bookstore-related functionality.
   license:
     name: Apache 2.0
     url: "http://www.apache.org/licenses/LICENSE-2.0.html"
 
 servers:
   - url: http://bookstore.kplabs.com/api
-    description: Local Developemnt Server
+    description: Local Development Server
+
+tags:
+  - name: auth
+    description: |
+      Authentication and account verification endpoints.
+
+      Includes:
+      - User registration
+      - User login
+      - Email OTP verification
+      - Resending OTP
+      - Forgot password
+      - Reset password
 
 paths:
+  # ============================================================
+  # AUTHENTICATION ROUTES
+  # ============================================================
+
   /auth/register:
-    post:
-      operationId: registerUser
-      security: []
-      tags:
-        - auth
-      summary: Register a new user
-      description: |
-        Creates a new user account using the provided personal information.
-        After successful registration, an OTP is sent to the user's email address
-        for email verification.
-
-        This endpoint is publicly accessible and does not require authentication.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RegisterUserRequest"
-            example:
-              name: "Panchal Keyur"
-              email: "panchalkeyur.dev@gmail.com"
-              password: "hello-1234"
-              dateOfBirth: "2005-06-08"
-              phoneNumber: 1234567890
-              gender: "male"
-              address:
-                line: "vastral"
-                city: "amdavad"
-                state: "guj"
-                zipCode: 382418
-                country: "ind"
-                street: "Dakor"
-
-      responses:
-        "201":
-          description: User registered successfully and an email verification OTP has been sent.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RegisterUserResponse"
-              example:
-                status: "success"
-                message: "user is registered, otp is being sent to email for verification"
-                data:
-                  name: "Panchal Keyur"
-                  email: "stealth.killer.119@gmail.com"
-                  isEmailVerified: false
-                  faviourites: []
-                  role: "user"
-                  dateOfBirth: "2005-06-08T00:00:00.000Z"
-                  phoneNumber: 1234567890
-                  gender: "male"
-                  address:
-                    line: "vastral"
-                    street: "Dakor"
-                    city: "amdavad"
-                    state: "guj"
-                    zipCode: 382418
-                    country: "ind"
-                  isActive: true
-                  totalOrderes: 0
-                  totalSpent: 0
-                  _id: "6ab8c6b4deb5c92fda07308a"
-                  cart: []
-                  createdAt: "2026-09-27T07:33:08.757Z"
-                  updatedAt: "2026-09-27T07:33:08.757Z"
-
-        "400":
-          description: The registration data is invalid.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              examples:
-                invalidName:
-                  summary: Invalid name
-                  value:
-                    status: "Error"
-                    message: "please enter correct name"
-                emptyName:
-                  summary: Empty name
-                  value:
-                    status: "Error"
-                    message: "please enter your name"
-                invalidEmail:
-                  summary: Invalid email
-                  value:
-                    status: "Error"
-                    message: "please provide valid email address"
-                emptyEmail:
-                  summary: Empty email
-                  value:
-                    status: "Error"
-                    message: "email field should not be empty"
-                invalidDateOfBirth:
-                  summary: Invalid date of birth
-                  value:
-                    status: "Error"
-                    message: "please enter your date of birth"
-                invalidPhoneNumber:
-                  summary: Invalid phone number
-                  value:
-                    status: "Error"
-                    message: "phoneNumber lenght must be 10 characters"
-                invalidGender:
-                  summary: Invalid gender
-                  value:
-                    status: "Error"
-                    message: "Invalid gender selection"
-                invalidAddress:
-                  summary: Invalid address
-                  value:
-                    status: "Error"
-                    message: "address field should not be empty"
+    $ref: "./auth.yaml#/register"
 
   /auth/login:
-    post:
-      operationId: loginUser
-      security: []
-      tags:
-        - auth
-      summary: Log in to an account
-      description: |
-        Authenticates a user using their email address and password.
-        When the credentials are valid, the API returns a JWT token that can
-        be used to access protected endpoints.
-
-        This endpoint is publicly accessible and does not require authentication.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/LoginRequest"
-            example:
-              email: "hello-1@gmail.com"
-              password: "hello-1234"
-      responses:
-        "200":
-          description: User authenticated successfully.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/LoginResponse"
-              example:
-                status: "success"
-                token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                data:
-                  address:
-                    line: "6 nilkanth row house"
-                    street: "vastral"
-                    city: "amdavad"
-                    state: "guj"
-                    zipCode: 382418
-                    country: "ind"
-                  _id: "683aa9c34ae6c56e60594eb2"
-                  name: "hello-1"
-                  email: "hello-1@gmail.com"
-                  isEmailVerified: true
-                  role: "admin"
-                  dateOfBirth: "2005-06-08T00:00:00.000Z"
-                  phoneNumber: 1234567890
-                  gender: "male"
-                  isActive: true
-                  totalOrderes: 0
-                  totalSpent: 0
-                  cart: []
-                  createdAt: "2025-05-31T07:03:31.815Z"
-                  updatedAt: "2025-05-31T07:03:31.815Z"
-                  faviourites:
-                    - "6836a66013f0b230bee67c1f"
-                    - "683697c5c4efe00d7ca88e5a"
-
-        "400":
-          description: Invalid login request.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              examples:
-                invalidEmail:
-                  summary: Invalid email
-                  value:
-                    status: "Error"
-                    message: "please provide valid email address"
-                emptyEmail:
-                  summary: Empty email
-                  value:
-                    status: "Error"
-                    message: "email field should not be empty"
-                invalidPassword:
-                  summary: Invalid password
-                  value:
-                    status: "Error"
-                    message: "please enter correct password"
-
-        "401":
-          description: Authentication failed because the provided password is incorrect.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                status: "Error"
-                message: "your password is incorrect, please enter correct password"
-
-        "404":
-          description: No user exists with the provided email address.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                status: "Error"
-                message: "No user found "
+    $ref: "./auth.yaml#/login"
 
   /auth/verifyOtp:
-    post:
-      operationId: verifyOtp
-      security: []
-      tags:
-        - auth
-      summary: Verify OTP
-      description: |
-        Verifies a one-time password (OTP) sent to the user's email address.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/VerifyOtpRequest"
-            example:
-              otp: 123456,
-              email: "panchalkeyur.dev@gmail.com"
-      responses:
-        "200":
-          description: OTP verified successfully. Returns a JWT token and the verified user.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/VerifyOtpResponse"
-              example:
-                status: "success"
-                message: "otp verified successfully"
-                token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                data:
-                  address:
-                    line: "near metro station, indiranagar"
-                    street: "10th main road"
-                    city: "bengaluru"
-                    state: "kar"
-                    zipCode: 560038
-                    country: "ind"
-                  _id: "6abe528d92d30f6fb4097f64"
-                  name: "Panchal Keyur"
-                  email: "panchalkeyur.dev@gmail.com"
-                  isEmailVerified: true
-                  faviourites: []
-                  role: "user"
-                  dateOfBirth: "2005-06-08T00:00:00.000Z"
-                  phoneNumber: 1234567890
-                  gender: "male"
-                  isActive: true
-                  totalOrderes: 0
-                  totalSpent: 0
-                  cart: []
-                  createdAt: "2026-10-01T12:31:09.871Z"
-                  updatedAt: "2026-10-01T12:31:09.871Z"
-
-        "400":
-          description: "Invalid OTP"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              examples:
-                expiredOtp:
-                  summary: Invalid OTP
-                  value:
-                    status: "Error"
-                    message: "otp is expired"
-                invalidOtp:
-                  summary: Invalid OTP
-                  value:
-                    status: "Error"
-                    message: "please enter correct otp"
-        "404":
-          description: "User not found"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                status: "Error"
-                message: "user does not exists"
+    $ref: "./auth.yaml#/verifyOtp"
 
   /auth/resendOtp:
-    post:
-      operationId: resendOtp
-      security: []
-      tags:
-        - auth
-      summary: Resend OTP
-      description: |
-        Resends a one-time password (OTP) to the user's email address.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ResendOtpRequest"
-            example:
-              email: "panchalkeyur.dev@gmail.com"
-      responses:
-        "200":
-          description: "API Route for resending OTP"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResendOtpRequest"
-              example:
-                status: "success"
-                message: "otp is sent to email, please check your email"
-        "400":
-          description: "Invalid email"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              examples:
-                invalidEmail:
-                  summary: "Invalid Email"
-                  value:
-                    status: "Error"
-                    message: "please provide your email"
-                userVerified:
-                  summary: "User Verified"
-                  value:
-                    status: "Error"
-                    message: "user already verified"
-        "404":
-          description: "User not found"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                status: "Error"
-                message: "user not found"
+    $ref: "./auth.yaml#/resendOtp"
 
   /auth/forgotpassword:
-    post:
-      operationId: forgotPassword
-      security:
-        - bearerAuth: []
-      tags:
-        - auth
-      summary: Forgot Password
-      description: |
-        Sends a password reset email to the authenticated user's email address.
-        This endpoint requires a valid JWT bearer token.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ForgotPasswordRequest"
-            example:
-              email: "panchalkeyur.dev@gmail.com"
-      responses:
-        "200":
-          description: Password reset email sent successfully.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ForgotPasswordResponse"
-              example:
-                status: "success"
-                message: "email send successfully"
-        "400":
-          description: Authentication failed because a JWT token was not provided, or the request body is invalid.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              examples:
-                tokenNotFound:
-                  summary: Token not found
-                  value:
-                    status: "Error"
-                    message: "Token not found please register first"
-                pleaseLogin:
-                  summary: Missing token after Bearer
-                  value:
-                    status: "Error"
-                    message: "Please login to access this page"
-                missingEmail:
-                  summary: Missing email
-                  value:
-                    status: "Error"
-                    message: "please provide email address"
-                userNotFound:
-                  summary: No user for the provided email
-                  value:
-                    status: "Error"
-                    message: "user not found"
-        "403":
-          description: The authenticated user has not verified their email address.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                status: "Error"
-                message: "you are not verified, please verified first then try again"
-        "404":
-          description: No user exists for the authenticated token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                status: "Error"
-                message: "user not found, please register first"
+    $ref: "./auth.yaml#/forgotPassword"
 
   /auth/resetpassword/{token}:
-    post:
-      operationId: resetPassword
-      security:
-        - bearerAuth: []
-      tags:
-        - auth
-      summary: Reset Password
-      description: |
-        Resets the authenticated user's password using a reset token.
-        This endpoint requires a valid JWT bearer token.
-      parameters:
-        - name: token
-          in: path
-          required: true
-          description: Password reset token sent to the user's email address.
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ResetPasswordRequest"
-            example:
-              password: "hello-1234"
-      responses:
-        "200":
-          description: Password reset successfully.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ResetPasswordResponse"
-              example:
-                status: "success"
-                message: "password chagned successfully"
-        "400":
-          description: Authentication failed because a JWT token was not provided, or the request is invalid.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              examples:
-                tokenNotFound:
-                  summary: Token not found
-                  value:
-                    status: "Error"
-                    message: "Token not found please register first"
-                pleaseLogin:
-                  summary: Missing token after Bearer
-                  value:
-                    status: "Error"
-                    message: "Please login to access this page"
-                missingPassword:
-                  summary: Missing password
-                  value:
-                    status: "Error"
-                    message: "please provide your password"
-        "403":
-          description: The authenticated user has not verified their email address.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                status: "Error"
-                message: "you are not verified, please verified first then try again"
-        "404":
-          description: No user exists for the authenticated token.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                status: "Error"
-                message: "user not found, please register first"
+    $ref: "./auth.yaml#/resetPassword"
+
+# ==============================================================
+# COMPONENTS
+# ==============================================================
 
 components:
+  # ============================================================
+  # SECURITY SCHEMES
+  # ============================================================
+
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: JWT access token obtained after login or OTP verification.
+      description: |
+        JWT access token used to authenticate protected API requests.
+
+        The token is returned after successful login or OTP verification.
+
+        Send the token using the Authorization header:
+
+        Authorization: Bearer <JWT_TOKEN>
+
+  # ============================================================
+  # SCHEMAS
+  # ============================================================
 
   schemas:
     Address:
-      type: object
-      required:
-        - street
-        - city
-        - state
-        - zipCode
-        - country
-      properties:
-        line:
-          type: string
-          description: Additional address information such as an area, building, or locality.
-          example: "vastral"
-
-        street:
-          type: string
-          description: The user's street or road name.
-          example: "Dakor"
-
-        city:
-          type: string
-          description: The user's city.
-          example: "amdavad"
-
-        state:
-          type: string
-          description: The user's state or province.
-          example: "guj"
-
-        zipCode:
-          type: integer
-          description: The user's postal or ZIP code.
-          example: 382418
-
-        country:
-          type: string
-          description: The user's country.
-          example: "ind"
+      $ref: "./schema.yaml#/components/schemas/Address"
 
     RegisterUserRequest:
-      type: object
-      required:
-        - name
-        - email
-        - password
-        - dateOfBirth
-        - phoneNumber
-        - gender
-        - address
-      properties:
-        name:
-          type: string
-          description: The user's full name.
-          example: "Panchal Keyur"
-
-        email:
-          type: string
-          format: email
-          description: The email address used for the user's account and email verification.
-          example: "stealth.killer.119@gmail.com"
-
-        password:
-          type: string
-          format: password
-          description: The password used to authenticate the user.
-          example: "hello-1234"
-
-        dateOfBirth:
-          type: string
-          format: date
-          description: The user's date of birth.
-          example: "2005-06-08"
-
-        phoneNumber:
-          type: integer
-          description: The user's 10-digit phone number.
-          example: 1234567890
-
-        gender:
-          type: string
-          enum:
-            - male
-            - female
-            - others
-          description: The user's gender.
-          example: "male"
-
-        address:
-          $ref: "#/components/schemas/Address"
+      $ref: "./schema.yaml#/components/schemas/RegisterUserRequest"
 
     LoginRequest:
-      type: object
-      required:
-        - email
-        - password
-      properties:
-        email:
-          type: string
-          format: email
-          description: The email address associated with the user account.
-          example: "hello-1@gmail.com"
-
-        password:
-          type: string
-          format: password
-          description: The password associated with the user account.
-          example: "hello-1234"
+      $ref: "./schema.yaml#/components/schemas/LoginRequest"
 
     VerifyOtpRequest:
-      type: object
-      required:
-        - otp
-        - email
-      properties:
-        otp:
-          type: integer
-          description: The one-time password sent to the user's email for verification.
-          example: 151858
-
-        email:
-          type: string
-          format: email
-          description: The email address associated with the user account being verified.
-          example: "panchalkeyur.dev@gmail.com"
+      $ref: "./schema.yaml#/components/schemas/VerifyOtpRequest"
 
     ResendOtpRequest:
-      type: object
-      required:
-        - email
-      properties:
-        email:
-          type: string
-          format: email
-          description: The email address to which a new OTP should be sent.
-          example: "panchalkeyur.dev@gmail.com"
+      $ref: "./schema.yaml#/components/schemas/ResendOtpRequest"
 
     ForgotPasswordRequest:
-      type: object
-      required:
-        - email
-      properties:
-        email:
-          type: string
-          format: email
-          description: The email address associated with the account for which a password reset is requested.
-          example: "hello-1@gmail.com"
+      $ref: "./schema.yaml#/components/schemas/ForgotPasswordRequest"
 
     ResetPasswordRequest:
-      type: object
-      required:
-        - password
-      properties:
-        password:
-          type: string
-          format: password
-          description: The new password to set for the user account.
-          example: "hello-12345"
-
-    ForgotPasswordResponse:
-      type: object
-      properties:
-        status:
-          type: string
-          example: "success"
-
-        message:
-          type: string
-          description: A message confirming that the password reset email was sent.
-          example: "email send successfully"
-
-    ResetPasswordResponse:
-      type: object
-      properties:
-        status:
-          type: string
-          example: "success"
-
-        message:
-          type: string
-          description: A message confirming that the password was changed successfully.
-          example: "password chagned successfully"
+      $ref: "./schema.yaml#/components/schemas/ResetPasswordRequest"
 
     RegisterUserResponse:
-      type: object
-      properties:
-        status:
-          type: string
-          example: "success"
-
-        message:
-          type: string
-          description: A message confirming that the user was registered and that an OTP was sent for email verification.
-          example: "user is registered, otp is being sent to email for verification"
-
-        data:
-          $ref: "#/components/schemas/User"
+      $ref: "./schema.yaml#/components/schemas/RegisterUserResponse"
 
     LoginResponse:
-      type: object
-      properties:
-        status:
-          type: string
-          example: "success"
-
-        token:
-          type: string
-          description: JWT token used to authenticate requests to protected endpoints.
-          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-
-        data:
-          $ref: "#/components/schemas/User"
+      $ref: "./schema.yaml#/components/schemas/LoginResponse"
 
     VerifyOtpResponse:
-      type: object
-      properties:
-        status:
-          type: string
-          example: "success"
+      $ref: "./schema.yaml#/components/schemas/VerifyOtpResponse"
 
-        message:
-          type: string
-          description: A message confirming that the OTP was verified successfully.
-          example: "otp verified successfully"
+    ResendOtpResponse:
+      $ref: "./schema.yaml#/components/schemas/ResendOtpResponse"
 
-        token:
-          type: string
-          description: JWT token used to authenticate requests to protected endpoints.
-          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    ForgotPasswordResponse:
+      $ref: "./schema.yaml#/components/schemas/ForgotPasswordResponse"
 
-        data:
-          $ref: "#/components/schemas/User"
+    ResetPasswordResponse:
+      $ref: "./schema.yaml#/components/schemas/ResetPasswordResponse"
 
     User:
-      type: object
-      properties:
-        _id:
-          type: string
-          description: Unique identifier of the user.
-          example: "683aa9c34ae6c56e60594eb2"
-
-        name:
-          type: string
-          example: "hello-1"
-
-        email:
-          type: string
-          format: email
-          example: "hello-1@gmail.com"
-
-        isEmailVerified:
-          type: boolean
-          description: Indicates whether the user's email address has been verified.
-          example: true
-
-        role:
-          type: string
-          description: Role assigned to the user.
-          example: "user"
-
-        dateOfBirth:
-          type: string
-          format: date-time
-          example: "2005-06-08T00:00:00.000Z"
-
-        phoneNumber:
-          type: integer
-          example: 1234567890
-
-        gender:
-          type: string
-          enum:
-            - male
-            - female
-            - others
-          example: "male"
-
-        address:
-          $ref: "#/components/schemas/Address"
-
-        isActive:
-          type: boolean
-          example: true
-
-        totalOrderes:
-          type: integer
-          example: 0
-
-        totalSpent:
-          type: number
-          example: 0
-
-        cart:
-          type: array
-          description: Items currently stored in the user's cart.
-          items: {}
-          example: []
-
-        faviourites:
-          type: array
-          description: IDs of books added to the user's favourites.
-          items:
-            type: string
-          example:
-            - "6836a66013f0b230bee67c1f"
-            - "683697c5c4efe00d7ca88e5a"
-
-        createdAt:
-          type: string
-          format: date-time
-          example: "2025-05-31T07:03:31.815Z"
-
-        updatedAt:
-          type: string
-          format: date-time
-          example: "2025-05-31T07:03:31.815Z"
+      $ref: "./schema.yaml#/components/schemas/User"
 
     ErrorResponse:
-      type: object
-      properties:
-        status:
-          type: string
-          example: "Error"
-
-        message:
-          type: string
-          description: A message explaining why the request failed.
-          example: "please provide valid email address"
+      $ref: "./schema.yaml#/components/schemas/ErrorResponse"

@@ -1,0 +1,447 @@
+# schema.yaml
+
+components:
+  schemas:
+    # ============================================================
+    # COMMON SCHEMAS
+    # ============================================================
+
+    Address:
+      type: object
+      description: Physical address associated with a user.
+
+      required:
+        - street
+        - city
+        - state
+        - zipCode
+        - country
+
+      properties:
+        line:
+          type: string
+          description: Additional address information such as an area or locality.
+          example: "vastral"
+
+        street:
+          type: string
+          description: The user's street or road name.
+          example: "Dakor"
+
+        city:
+          type: string
+          description: The city where the user resides.
+          example: "amdavad"
+
+        state:
+          type: string
+          description: The state or province where the user resides.
+          example: "guj"
+
+        zipCode:
+          type: integer
+          description: Postal or ZIP code associated with the address.
+          example: 382418
+
+        country:
+          type: string
+          description: Country associated with the address.
+          example: "ind"
+
+    # ============================================================
+    # AUTHENTICATION REQUEST SCHEMAS
+    # ============================================================
+
+    RegisterUserRequest:
+      type: object
+      description: Request payload used to create a new BookStore user account.
+
+      required:
+        - name
+        - email
+        - password
+        - dateOfBirth
+        - phoneNumber
+        - gender
+        - address
+
+      properties:
+        name:
+          type: string
+          minLength: 2
+          description: The user's full name.
+          example: "Panchal Keyur"
+
+        email:
+          type: string
+          format: email
+          description: Email address used for the user's account.
+          example: "panchalkeyur.dev@gmail.com"
+
+        password:
+          type: string
+          format: password
+          minLength: 8
+          description: Password used to authenticate the user.
+          example: "hello-1234"
+
+        dateOfBirth:
+          type: string
+          format: date
+          description: The user's date of birth.
+          example: "2005-06-08"
+
+        phoneNumber:
+          type: integer
+          description: The user's 10-digit phone number.
+          example: 1234567890
+
+        gender:
+          type: string
+          enum:
+            - male
+            - female
+            - others
+          description: Gender selected by the user.
+          example: "male"
+
+        address:
+          $ref: "#/components/schemas/Address"
+
+    LoginRequest:
+      type: object
+      description: Request payload used to authenticate an existing user.
+
+      required:
+        - email
+        - password
+
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email address associated with the user account.
+          example: "hello-1@gmail.com"
+
+        password:
+          type: string
+          format: password
+          description: Password associated with the user account.
+          example: "hello-1234"
+
+    VerifyOtpRequest:
+      type: object
+      description: Request payload used to verify an OTP.
+
+      required:
+        - otp
+        - email
+
+      properties:
+        otp:
+          type: integer
+          minimum: 100000
+          maximum: 999999
+          description: Six-digit OTP sent to the user's email.
+          example: 151858
+
+        email:
+          type: string
+          format: email
+          description: Email address associated with the account.
+          example: "panchalkeyur.dev@gmail.com"
+
+    ResendOtpRequest:
+      type: object
+      description: Request payload used to request a new OTP.
+
+      required:
+        - email
+
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email address associated with the user account.
+          example: "panchalkeyur.dev@gmail.com"
+
+    ForgotPasswordRequest:
+      type: object
+      description: Request payload used to start the password reset process.
+
+      required:
+        - email
+
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email address associated with the account.
+          example: "hello-1@gmail.com"
+
+    ResetPasswordRequest:
+      type: object
+      description: Request payload used to set a new password.
+
+      required:
+        - password
+
+      properties:
+        password:
+          type: string
+          format: password
+          minLength: 8
+          description: New password that replaces the existing password.
+          example: "hello-12345"
+
+    # ============================================================
+    # AUTHENTICATION RESPONSE SCHEMAS
+    # ============================================================
+
+    RegisterUserResponse:
+      type: object
+      description: Response returned after successfully registering a user.
+
+      required:
+        - status
+        - message
+        - data
+
+      properties:
+        status:
+          type: string
+          example: "success"
+
+        message:
+          type: string
+          example: "user is registered, otp is being sent to email for verification"
+
+        data:
+          $ref: "#/components/schemas/User"
+
+    LoginResponse:
+      type: object
+      description: Response returned after successful authentication.
+
+      required:
+        - status
+        - token
+        - data
+
+      properties:
+        status:
+          type: string
+          example: "success"
+
+        token:
+          type: string
+          description: JWT access token.
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+        data:
+          $ref: "#/components/schemas/User"
+
+    VerifyOtpResponse:
+      type: object
+      description: Response returned after successfully verifying an OTP.
+
+      required:
+        - status
+        - message
+        - token
+        - data
+
+      properties:
+        status:
+          type: string
+          example: "success"
+
+        message:
+          type: string
+          example: "otp verified successfully"
+
+        token:
+          type: string
+          description: JWT access token.
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+        data:
+          $ref: "#/components/schemas/User"
+
+    ResendOtpResponse:
+      type: object
+      description: Response returned after successfully sending a new OTP.
+
+      required:
+        - status
+        - message
+
+      properties:
+        status:
+          type: string
+          example: "success"
+
+        message:
+          type: string
+          example: "otp is sent to email, please check your email"
+
+    ForgotPasswordResponse:
+      type: object
+      description: Response returned after successfully initiating password reset.
+
+      required:
+        - status
+        - message
+
+      properties:
+        status:
+          type: string
+          example: "success"
+
+        message:
+          type: string
+          example: "email send successfully"
+
+    ResetPasswordResponse:
+      type: object
+      description: Response returned after successfully changing the password.
+
+      required:
+        - status
+        - message
+
+      properties:
+        status:
+          type: string
+          example: "success"
+
+        message:
+          type: string
+          example: "password chagned successfully"
+
+    # ============================================================
+    # USER
+    # ============================================================
+
+    User:
+      type: object
+      description: Represents a BookStore user account.
+
+      properties:
+        _id:
+          type: string
+          description: Unique identifier of the user.
+          example: "683aa9c34ae6c56e60594eb2"
+
+        name:
+          type: string
+          description: User's full name.
+          example: "hello-1"
+
+        email:
+          type: string
+          format: email
+          description: User's email address.
+          example: "hello-1@gmail.com"
+
+        isEmailVerified:
+          type: boolean
+          description: Indicates whether the user's email has been verified.
+          example: true
+
+        role:
+          type: string
+          enum:
+            - user
+            - admin
+          description: User's application role.
+          example: "user"
+
+        dateOfBirth:
+          type: string
+          format: date-time
+          description: User's date of birth.
+          example: "2005-06-08T00:00:00.000Z"
+
+        phoneNumber:
+          type: integer
+          description: User's 10-digit phone number.
+          example: 1234567890
+
+        gender:
+          type: string
+          enum:
+            - male
+            - female
+            - others
+          example: "male"
+
+        address:
+          $ref: "#/components/schemas/Address"
+
+        isActive:
+          type: boolean
+          description: Indicates whether the user account is active.
+          example: true
+
+        totalOrderes:
+          type: integer
+          minimum: 0
+          description: Total number of orders placed by the user.
+          example: 0
+
+        totalSpent:
+          type: number
+          minimum: 0
+          description: Total amount spent by the user.
+          example: 0
+
+        cart:
+          type: array
+          description: Items currently stored in the user's shopping cart.
+          items:
+            type: string
+          example: []
+
+        faviourites:
+          type: array
+          description: IDs of books added to the user's favourites.
+          items:
+            type: string
+          example:
+            - "6836a66013f0b230bee67c1f"
+            - "683697c5c4efe00d7ca88e5a"
+
+        createdAt:
+          type: string
+          format: date-time
+          description: Account creation timestamp.
+          example: "2025-05-31T07:03:31.815Z"
+
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last account update timestamp.
+          example: "2025-05-31T07:03:31.815Z"
+
+    # ============================================================
+    # ERROR
+    # ============================================================
+
+    ErrorResponse:
+      type: object
+      description: Standard error response.
+
+      required:
+        - status
+        - message
+
+      properties:
+        status:
+          type: string
+          example: "Error"
+
+        message:
+          type: string
+          description: Human-readable explanation of the error.
+          example: "please provide valid email address"
