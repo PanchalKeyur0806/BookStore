@@ -21,10 +21,15 @@ import "./workers/emailWorker.js";
 import errorHandler from "./controllers/errorController.js";
 
 import { webhook } from "./controllers/paymentController.js";
+import path from "path";
 
 dotenv.config();
 
 const app = express();
+
+app.get("/docs", (req, res) => {
+  res.sendFile(path.join(process.cwd(), "docs", "apidoc.html"));
+});
 
 app.use(helmet());
 app.use(
