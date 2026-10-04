@@ -43,6 +43,14 @@ tags:
       - Administrator book creation with Cloudinary cover image upload
       - Administrator book updates with metadata editing and cover image replacement
       - Administrator soft-deletion preserving historical order data
+  - name: cart
+    description: |
+      Shopping cart operations for authenticated customers.
+
+      Includes:
+      - Retrieving active user shopping cart with Redis caching
+      - Adding books to cart with real-time inventory validation and dynamic pricing recalculation
+      - Removing items from cart with automatic price and quantity reconciliation
 
 paths:
   # ============================================================
@@ -121,6 +129,19 @@ paths:
 
   /books/{bookId}:
     $ref: "./book.yaml#/bookById"
+
+  # ============================================================
+  # CART ROUTES
+  # ============================================================
+
+  /cart:
+    $ref: "./cart.yaml#/cart"
+
+  /cart/add:
+    $ref: "./cart.yaml#/addToCart"
+
+  /cart/remove/{bookId}:
+    $ref: "./cart.yaml#/removeBookFromCart"
 
 # ==============================================================
 # COMPONENTS
@@ -364,3 +385,19 @@ components:
 
     DeleteBookResponse:
       $ref: "./schema.yaml#/components/schemas/DeleteBookResponse"
+
+    # ============================================================
+    # CART SCHEMAS
+    # ============================================================
+
+    CartItem:
+      $ref: "./schema.yaml#/components/schemas/CartItem"
+
+    Cart:
+      $ref: "./schema.yaml#/components/schemas/Cart"
+
+    AddToCartRequest:
+      $ref: "./schema.yaml#/components/schemas/AddToCartRequest"
+
+    CartResponse:
+      $ref: "./schema.yaml#/components/schemas/CartResponse"

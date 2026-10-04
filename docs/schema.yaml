@@ -1838,4 +1838,117 @@ components:
           description: Confirmation message indicating the book has been deleted.
           example: "Book is deleted"
 
+    # =========================================================
+    # CART SCHEMAS
+    # =========================================================
+
+    CartItem:
+      type: object
+      description: |
+        An individual line item within the customer's shopping cart representing a specific book
+        and its designated quantity.
+      required:
+        - book
+        - quantity
+      properties:
+        _id:
+          type: string
+          description: Unique subdocument identifier of the item in the cart.
+          example: "683aae014ae6c56e60594eb9"
+        book:
+          type: string
+          description: 24-character hexadecimal MongoDB ObjectId of the book.
+          example: "683aab454ae6c56e60594eb7"
+        quantity:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Quantity of this specific book in the cart (minimum 1).
+          example: 2
+
+    Cart:
+      type: object
+      description: |
+        Customer shopping cart entity stored in MongoDB and cached in Redis.
+        Contains the user reference, list of line items, calculated cumulative monetary
+        total (`totalPrice`), calculated cumulative quantity (`totalQuantity`),
+        and the `isOrdered` order status flag.
+      required:
+        - user
+        - items
+        - totalPrice
+        - totalQuantity
+        - isOrdered
+      properties:
+        _id:
+          type: string
+          description: Unique 24-character hexadecimal MongoDB ObjectId of the cart.
+          example: "683aacc04ae6c56e60594eb8"
+        user:
+          type: string
+          description: 24-character hexadecimal MongoDB ObjectId of the user who owns the cart.
+          example: "683aa9c34ae6c56e60594eb2"
+        items:
+          type: array
+          description: Collection of line items currently stored in the cart.
+          items:
+            $ref: "#/components/schemas/CartItem"
+        totalPrice:
+          type: number
+          format: double
+          minimum: 0
+          default: 0
+          description: Cumulative price of all items in the cart (sum of unit price * quantity).
+          example: 39.98
+        totalQuantity:
+          type: integer
+          minimum: 0
+          default: 0
+          description: Cumulative item count across all books currently in the cart.
+          example: 2
+        isOrdered:
+          type: boolean
+          default: false
+          description: Flag indicating whether this cart has been converted to a completed order.
+          example: false
+
+    AddToCartRequest:
+      type: object
+      description: |
+        Request payload required to add a book to the customer's shopping cart
+        or increment the quantity of an existing item.
+      required:
+        - bookId
+        - quantity
+      properties:
+        bookId:
+          type: string
+          description: 24-character hexadecimal MongoDB ObjectId of the book to add.
+          example: "683aab454ae6c56e60594eb7"
+        quantity:
+          type: integer
+          minimum: 1
+          description: Number of copies to add to the cart. Must be at least 1 and within available inventory stock.
+          example: 2
+
+    CartResponse:
+      type: object
+      description: Standard API response wrapper returning the customer's cart data.
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          example: "success"
+        message:
+          type: string
+          description: Operational message (e.g., "cart is found", "added to cart", "book was removed").
+          example: "added to cart"
+        data:
+          description: The customer's cart document, or null if no cart exists yet.
+          oneOf:
+            - $ref: "#/components/schemas/Cart"
+            - type: "null"
+
+
 

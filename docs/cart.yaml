@@ -1,0 +1,509 @@
+# cart.yaml
+#
+# Shopping cart API routes for the BookStore REST API.
+#
+# This file contains Path Item Objects that can be referenced
+# individually from the root openapi.yaml file.
+#
+# Paths:
+#   /cart:
+#     $ref: "./cart.yaml#/cart"
+#   /cart/add:
+#     $ref: "./cart.yaml#/addToCart"
+#   /cart/remove/{bookId}:
+#     $ref: "./cart.yaml#/removeBookFromCart"
+
+# ============================================================
+# 1. /cart (GET)
+# ============================================================
+cart:
+  # ------------------------------------------------------------
+  # GET /cart - Retrieve customer cart with Redis caching
+  # ------------------------------------------------------------
+  get:
+    operationId: getCart
+    security:
+      - bearerAuth: []
+    tags:
+      - cart
+
+    summary: Retrieve the authenticated user's shopping cart
+
+    description: |
+      Retrieves the active shopping cart for the authenticated customer.
+
+      This endpoint requires authentication and is restricted to customers with
+      `role: 'user'`. The user's email address must be verified.
+
+      ### High-Performance Redis Caching Architecture
+      The cart utilizes a **cache-aside** caching strategy via Redis:
+      1. **Cache Lookup**: Checks Redis key `user:{userId}:cart`.
+      2. **Cache Hit**:
+         - If cached data is present, the server parses the JSON string and responds
+           immediately with HTTP `200 OK` without touching the MongoDB database:
+           `{ status: "success", message: "cart is found", data: cartData }`.
+      3. **Cache Miss**:
+         - Queries MongoDB for an existing cart via `Cart.findOne({ user: userId })`.
+         - Writes the serialized result into Redis under key `user:{userId}:cart`.
+         - If a cart exists in the database, returns HTTP `200 OK` with `{ status: "success", data: getCart }`.
+         - If the user has not created or added any items to their cart yet, `data` is `null`.
+
+      ### Rate Limiting
+      - Protected by `getRateLimiter`: Maximum **30 requests per minute** per client IP.
+
+    responses:
+      "200":
+        description: Customer's cart successfully retrieved (from Redis cache or MongoDB).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/CartResponse"
+            examples:
+              cartWithItems:
+                summary: Cart containing book items
+                value:
+                  status: "success"
+                  message: "cart is found"
+                  data:
+                    _id: "683aacc04ae6c56e60594eb8"
+                    user: "683aa9c34ae6c56e60594eb2"
+                    items:
+                      - _id: "683aae014ae6c56e60594eb9"
+                        book: "683aab454ae6c56e60594eb7"
+                        quantity: 2
+                      - _id: "683aae014ae6c56e60594eba"
+                        book: "683aab454ae6c56e60594eb8"
+                        quantity: 1
+                    totalPrice: 80.48
+                    totalQuantity: 3
+                    isOrdered: false
+
+              emptyCart:
+                summary: User has no active cart yet
+                value:
+                  status: "success"
+                  data: null
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user is unverified or lacks customer privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              nonUserRole:
+                summary: User does not hold customer role (role != 'user')
+                value:
+                  status: "Error"
+                  message: "you are not allowed to perform this action"
+
+              unverifiedAccount:
+                summary: User account email is not verified
+                value:
+                  status: "Error"
+                  message: "you are not verified, please verified first then try again"
+
+      "429":
+        description: Rate limit exceeded (30 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error or Redis connection failure.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+# ============================================================
+# 2. /cart/add (POST)
+# ============================================================
+addToCart:
+  # ------------------------------------------------------------
+  # POST /cart/add - Add book to cart or increment quantity
+  # ------------------------------------------------------------
+  post:
+    operationId: addToCart
+    security:
+      - bearerAuth: []
+    tags:
+      - cart
+
+    summary: Add a book to the shopping cart or increment quantity
+
+    description: |
+      Adds a specified quantity of a book to the authenticated customer's shopping cart.
+
+      If a cart does not yet exist for the user, a new one is initialized. If the item
+      is already in the cart, its quantity is increased and financial totals are recalculated.
+      Synchronizes changes with Redis caching.
+
+      This endpoint requires authentication and is restricted to customers with `role: 'user'`.
+
+      ### In-Depth Business & Controller Logic
+      1. **Input Extraction**:
+         - Extracts `bookId` and `quantity` from request body.
+         - Extracts `userId` from authenticated `req.user.id`.
+      2. **Inventory Stock Pre-Check**:
+         - Queries `Books.findById(bookId)`.
+         - Verifies that `book.stock >= quantity`. If the requested quantity exceeds total book stock,
+           rejects immediately with HTTP `400 Bad Request`:
+           `"No book stock is available yet, please contact admin to futher information"`.
+      3. **Cart Discovery & Evaluation**:
+         - Queries MongoDB for an existing cart via `Cart.findOne({ user: userId })`.
+      4. **Branch A: Cart Does Not Exist**:
+         - Initializes a new Cart document:
+           ```json
+           {
+             "user": "userId",
+             "items": [{ "book": "bookId", "quantity": quantity }],
+             "totalQuantity": quantity,
+             "totalPrice": book.price * quantity
+           }
+           ```
+      5. **Branch B: Cart Already Exists**:
+         - Searches for `bookId` within `cart.items`:
+           - **Case 1: Book already exists in cart (`index > -1`)**:
+             - Calculates `newTotalQty = existingQty + quantity`.
+             - Stock Validation: If `newTotalQty > book.stock`, rejects with HTTP `400 Bad Request`:
+               `"Only <availableStock> more units available"`.
+             - Increments item quantity: `cart.items[index].quantity += quantity`.
+             - Increments totals: `cart.totalQuantity += quantity`, `cart.totalPrice += book.price * quantity`.
+           - **Case 2: Book is new to this existing cart (`index === -1`)**:
+             - Stock Validation: If `quantity > book.stock`, rejects with HTTP `400 Bad Request`:
+               `"Only <availableStock> more units available"`.
+             - Pushes new item to `cart.items`: `{ book: bookId, quantity }`.
+             - Increments totals: `cart.totalQuantity += quantity`, `cart.totalPrice += book.price * quantity`.
+      6. **Persistence & Cache Sync**:
+         - Persists cart to MongoDB: `await cart.save()`.
+         - Updates Redis cache key `user:{userId}:cart` with the newly saved cart JSON.
+      7. **Response**:
+         - Returns HTTP `200 OK` with `{ status: "success", message: "added to cart", data: cart }`.
+
+      ### Rate Limiting
+      - Protected by `mutationLimiter`: Maximum **10 mutations per minute** per client IP.
+
+    requestBody:
+      required: true
+      description: Book identifier and quantity to add to the cart.
+      content:
+        application/json:
+          schema:
+            $ref: "./schema.yaml#/components/schemas/AddToCartRequest"
+          example:
+            bookId: "683aab454ae6c56e60594eb7"
+            quantity: 2
+
+    responses:
+      "200":
+        description: Item added or incremented in cart successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/CartResponse"
+            example:
+              status: "success"
+              message: "added to cart"
+              data:
+                _id: "683aacc04ae6c56e60594eb8"
+                user: "683aa9c34ae6c56e60594eb2"
+                items:
+                  - _id: "683aae014ae6c56e60594eb9"
+                    book: "683aab454ae6c56e60594eb7"
+                    quantity: 2
+                totalPrice: 49.98
+                totalQuantity: 2
+                isOrdered: false
+
+      "400":
+        description: Insufficient inventory stock or validation error.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              noStockAvailable:
+                summary: Book inventory is lower than requested quantity
+                value:
+                  status: "Error"
+                  message: "No book stock is available yet, please contact admin to futher information"
+
+              exceedsStockIncrement:
+                summary: Additional quantity exceeds remaining stock for existing cart item
+                value:
+                  status: "Error"
+                  message: "Only 3 more units available"
+
+              exceedsStockNewItem:
+                summary: Requested quantity exceeds total stock for new item
+                value:
+                  status: "Error"
+                  message: "Only 5 more units available"
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user is unverified or lacks customer privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              nonUserRole:
+                summary: User does not hold customer role (role != 'user')
+                value:
+                  status: "Error"
+                  message: "you are not allowed to perform this action"
+
+              unverifiedAccount:
+                summary: User account email is not verified
+                value:
+                  status: "Error"
+                  message: "you are not verified, please verified first then try again"
+
+      "429":
+        description: Rate limit exceeded (10 mutations per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error or database failure.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+# ============================================================
+# 3. /cart/remove/{bookId} (POST)
+# ============================================================
+removeBookFromCart:
+  # ------------------------------------------------------------
+  # POST /cart/remove/{bookId} - Remove specific book from cart
+  # ------------------------------------------------------------
+  post:
+    operationId: removeBookFromCart
+    security:
+      - bearerAuth: []
+    tags:
+      - cart
+
+    summary: Remove a book from the shopping cart
+
+    description: |
+      Removes a specific book item entirely from the authenticated customer's shopping cart.
+
+      Automatically recalculates cumulative price (`totalPrice`) and quantity (`totalQuantity`)
+      based on the removed book's unit price, and synchronizes the updated cart with Redis cache.
+
+      This endpoint requires authentication and is restricted to customers with `role: 'user'`.
+
+      ### In-Depth Business & Controller Logic
+      1. **Parameter & ObjectId Validation**:
+         - Middleware `validateId("bookId")` validates that `bookId` is a syntactically valid
+           24-character hexadecimal MongoDB ObjectId (`mongoose.Types.ObjectId.isValid`).
+           If invalid, returns HTTP `400 Bad Request`: `"Invalid Id, please enter correct id"`.
+         - If `bookId` is missing, returns HTTP `400 Bad Request`:
+           `"please provide book id to remove a book from the cart"`.
+      2. **Cart Discovery**:
+         - Looks up the user's cart in MongoDB: `Cart.findOne({ user: id })`.
+         - If no cart exists for the user, returns HTTP `404 Not Found`:
+           `"cart not found, please create your cart first"`.
+      3. **Item Identification**:
+         - Searches for the book within `cart.items`:
+           `index = findExistingCart.items.findIndex(item => item.book.toString() === bookId)`.
+         - If the book is not present in the cart (`index === -1`), returns HTTP `404 Not Found`:
+           `"book not found in the cart"`.
+      4. **Price & Quantity Reconciliation**:
+         - Extracts the removed item's stored quantity: `removedQty = removedItem.quantity`.
+         - Queries the book details from MongoDB (`Books.findById(removedItem.book._id)`) to get its unit price.
+         - Computes deducted price: `removedPrice = findBook.price * removedQty`.
+         - Splices the item out of the `items` array: `cart.items.splice(index, 1)`.
+         - Subtracts from totals:
+           - `cart.totalPrice -= removedPrice`
+           - `cart.totalQuantity -= removedQty`
+         - **Empty Cart Handling**: If all items have been removed (`cart.items.length === 0`),
+           explicitly resets `totalPrice = 0` and `totalQuantity = 0`.
+      5. **Persistence & Cache Sync**:
+         - Saves the updated cart in MongoDB: `await findExistingCart.save()`.
+         - Updates Redis key `user:{userId}:cart` with the serialized updated cart.
+      6. **Response**:
+         - Returns HTTP `200 OK` with `{ status: "success", message: "book was removed", data: findExistingCart }`.
+
+      ### Rate Limiting
+      - Protected by `mutationLimiter`: Maximum **10 mutations per minute** per client IP.
+
+    parameters:
+      - name: bookId
+        in: path
+        required: true
+        description: |
+          24-character hexadecimal MongoDB ObjectId of the book to remove from the cart.
+        schema:
+          type: string
+        example: "683aab454ae6c56e60594eb7"
+
+    responses:
+      "200":
+        description: Book removed from cart and totals reconciled successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/CartResponse"
+            example:
+              status: "success"
+              message: "book was removed"
+              data:
+                _id: "683aacc04ae6c56e60594eb8"
+                user: "683aa9c34ae6c56e60594eb2"
+                items: []
+                totalPrice: 0
+                totalQuantity: 0
+                isOrdered: false
+
+      "400":
+        description: Invalid book ID syntax or missing parameter.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              invalidIdSyntax:
+                summary: Malformed MongoDB ObjectId
+                value:
+                  status: "Error"
+                  message: "Invalid Id, please enter correct id"
+
+              missingBookId:
+                summary: Missing bookId parameter
+                value:
+                  status: "Error"
+                  message: "please provide book id to remove a book from the cart"
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user is unverified or lacks customer privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              nonUserRole:
+                summary: User does not hold customer role (role != 'user')
+                value:
+                  status: "Error"
+                  message: "you are not allowed to perform this action"
+
+              unverifiedAccount:
+                summary: User account email is not verified
+                value:
+                  status: "Error"
+                  message: "you are not verified, please verified first then try again"
+
+      "404":
+        description: Cart not found or book not present in cart.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              cartNotFound:
+                summary: Customer does not have an existing cart
+                value:
+                  status: "Error"
+                  message: "cart not found, please create your cart first"
+
+              bookNotInCart:
+                summary: Specified book is not in the customer's cart
+                value:
+                  status: "Error"
+                  message: "book not found in the cart"
+
+      "429":
+        description: Rate limit exceeded (10 mutations per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error or database failure.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
