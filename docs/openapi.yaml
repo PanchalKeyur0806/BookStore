@@ -32,6 +32,17 @@ tags:
     description: |
       Administrator endpoints for monitoring and managing
       the bookstore application.
+  - name: books
+    description: |
+      Book catalog, inventory, and product management endpoints.
+
+      Includes:
+      - Public catalog browsing with title and author regex search
+      - Sorting (newest, oldest) and pagination controls
+      - Single book lookup with high-speed Redis caching
+      - Administrator book creation with Cloudinary cover image upload
+      - Administrator book updates with metadata editing and cover image replacement
+      - Administrator soft-deletion preserving historical order data
 
 paths:
   # ============================================================
@@ -100,6 +111,16 @@ paths:
 
   /admin/deactivateUser/{userId}:
     $ref: "./admin.yaml#/deactivateUser"
+
+  # ============================================================
+  # BOOK ROUTES
+  # ============================================================
+
+  /books:
+    $ref: "./book.yaml#/books"
+
+  /books/{bookId}:
+    $ref: "./book.yaml#/bookById"
 
 # ==============================================================
 # COMPONENTS
@@ -321,3 +342,25 @@ components:
 
     DeactivateUserResponse:
       $ref: "./schema.yaml#/components/schemas/DeactivateUserResponse"
+
+    # ============================================================
+    # BOOK SCHEMAS
+    # ============================================================
+
+    Book:
+      $ref: "./schema.yaml#/components/schemas/Book"
+
+    CreateBookRequest:
+      $ref: "./schema.yaml#/components/schemas/CreateBookRequest"
+
+    UpdateBookRequest:
+      $ref: "./schema.yaml#/components/schemas/UpdateBookRequest"
+
+    BookResponse:
+      $ref: "./schema.yaml#/components/schemas/BookResponse"
+
+    GetAllBooksResponse:
+      $ref: "./schema.yaml#/components/schemas/GetAllBooksResponse"
+
+    DeleteBookResponse:
+      $ref: "./schema.yaml#/components/schemas/DeleteBookResponse"

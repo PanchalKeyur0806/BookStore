@@ -1,0 +1,838 @@
+# book.yaml
+#
+# Book catalog and inventory API routes for the BookStore REST API.
+#
+# This file contains Path Item Objects that can be referenced
+# individually from the root openapi.yaml file.
+#
+# Paths:
+#   /books:
+#     $ref: "./book.yaml#/books"
+#   /books/{bookId}:
+#     $ref: "./book.yaml#/bookById"
+
+# ============================================================
+# 1. /books (GET, POST)
+# ============================================================
+books:
+  # ------------------------------------------------------------
+  # GET /books - List all books with filters and pagination
+  # ------------------------------------------------------------
+  get:
+    operationId: getAllBooks
+    security: []
+    tags:
+      - books
+
+    summary: Retrieve all books with search, sort, and pagination
+
+    description: |
+      Retrieves a paginated collection of active books from the catalog.
+
+      Supports keyword filtering by book title and author using case-insensitive
+      regular expressions (`$regex`, `$options: "i"`). Results can be sorted in
+      descending (newest) or ascending (oldest) chronological order by creation date.
+
+      ### Soft Deletion & Visibility
+      Soft-deleted books (`isDeleted: true`) are automatically excluded from the
+      result set by a Mongoose `pre(/^find/)` query middleware.
+
+      ### Search & Filtering Capabilities
+      - **Title Search**: Substring match against book titles.
+      - **Author Search**: Substring match against author names.
+      - Both filters can be used independently or combined.
+
+      ### Sorting Behavior
+      - `sort=new` (default): Sorts descending by `-createdAt` (newest books first).
+      - `sort=old`: Sorts ascending by `createdAt` (oldest books first).
+      - Any unrecognized sort parameter defaults to `new`.
+
+      ### Pagination Rules
+      - `page`: 1-based page index (defaults to `1`).
+      - `limit`: Number of records returned per page (defaults to `10`).
+      - **Upper Bound**: If `limit` exceeds `100`, the server automatically caps it at `100`.
+      - Computes `skip = (page - 1) * limit`.
+      - Computes `totalPages = Math.ceil(totalItems / limit)` and `hasNextPage = page < totalPages`.
+
+      ### Rate Limiting
+      - Protected by `getRateLimiter`: Maximum **30 requests per minute** per client IP.
+
+    parameters:
+      - name: title
+        in: query
+        required: false
+        description: |
+          Case-insensitive substring search for book title.
+          Matches any book whose title contains the specified query text.
+        schema:
+          type: string
+        example: "clean"
+
+      - name: author
+        in: query
+        required: false
+        description: |
+          Case-insensitive substring search for author name.
+          Matches any book written by an author matching the query string.
+        schema:
+          type: string
+        example: "martin"
+
+      - name: sort
+        in: query
+        required: false
+        description: |
+          Ordering criterion for the returned books:
+          - `new`: Newest books first (sorted descending by creation date `-createdAt`).
+          - `old`: Oldest books first (sorted ascending by creation date `createdAt`).
+          Defaults to `new` if omitted or if an invalid option is provided.
+        schema:
+          type: string
+          enum:
+            - new
+            - old
+          default: new
+        example: "new"
+
+      - name: page
+        in: query
+        required: false
+        description: |
+          1-based page number for paginated results.
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        example: 1
+
+      - name: limit
+        in: query
+        required: false
+        description: |
+          Number of book records returned per page. Maximum allowed value is 100.
+          Values exceeding 100 are automatically clamped to 100 by the server.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+        example: 10
+
+    responses:
+      "200":
+        description: Books successfully retrieved with pagination metadata.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/GetAllBooksResponse"
+            examples:
+              booksFound:
+                summary: Books found matching criteria
+                value:
+                  status: "success"
+                  length: 2
+                  pagination:
+                    totalItems: 42
+                    totalPages: 5
+                    currentPage: 1
+                    hasNextPage: true
+                  message: "all books found"
+                  data:
+                    - _id: "683aab454ae6c56e60594eb7"
+                      title: "Clean Code: A Handbook of Agile Software Craftsmanship"
+                      author: "Robert C. Martin"
+                      stock: 35
+                      description: "A comprehensive handbook for software craftsmen containing best practices, principles, and code smells."
+                      totalSales: 89
+                      price: 38.99
+                      category: "Self-help"
+                      coverImage: "https://res.cloudinary.com/bookstore/image/upload/v1717145678/BookStore/clean-code.jpg"
+                      ratingAverage: 4.7
+                      ratingQuantity: 112
+                      createdAt: "2026-05-30T10:15:30.000Z"
+                      isDeleted: false
+                    - _id: "683aab454ae6c56e60594eb8"
+                      title: "The Pragmatic Programmer"
+                      author: "Andrew Hunt, David Thomas"
+                      stock: 20
+                      description: "Your journey to mastery: continuous learning, career growth, and software craft."
+                      totalSales: 64
+                      price: 42.50
+                      category: "Self-help"
+                      coverImage: "https://res.cloudinary.com/bookstore/image/upload/v1717145690/BookStore/pragmatic-programmer.jpg"
+                      ratingAverage: 4.9
+                      ratingQuantity: 95
+                      createdAt: "2026-05-28T08:22:15.000Z"
+                      isDeleted: false
+
+              emptyResults:
+                summary: No books matched the query filters
+                value:
+                  status: "success"
+                  length: 0
+                  pagination:
+                    totalItems: 0
+                    totalPages: 0
+                    currentPage: 1
+                    hasNextPage: false
+                  message: "books not found"
+                  data: []
+
+      "400":
+        description: Invalid query parameters provided.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Invalid query parameters"
+
+      "429":
+        description: Rate limit exceeded (30 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+  # ------------------------------------------------------------
+  # POST /books - Create a new book (Admin Only)
+  # ------------------------------------------------------------
+  post:
+    operationId: createBook
+    security:
+      - bearerAuth: []
+    tags:
+      - books
+
+    summary: Create a new book with cover image upload
+
+    description: |
+      Creates and registers a new book entity in the bookstore catalog.
+
+      This operation is restricted to verified administrators (`role: 'admin'`).
+      The request must be transmitted as `multipart/form-data` to accommodate
+      both book metadata fields and the binary image file for the book's cover.
+
+      ### Creation & Upload Flow
+      1. **Authentication**: Caller provides a valid JWT Bearer token in the `Authorization` header.
+      2. **Authorization**: `restrictTo("admin")` middleware verifies the caller holds `admin` role and that their email is verified.
+      3. **Rate Limiting**: `mutationLimiter` restricts the caller to **10 mutations per minute**.
+      4. **File Handling**: Multer parses the multipart request, extracting the file from field `coverImage` and writing it to temporary disk storage (`uploads/`).
+      5. **Validation**: `validateBooks` validates the presence and constraints of `title`, `author`, `stock`, `description`, `price`, and `category`.
+      6. **Cloudinary Upload**: The server uploads the temporary cover image to Cloudinary under the `"BookStore"` folder.
+      7. **Cleanup**: The local temporary file is deleted from disk using `fs.unlink`.
+      8. **Database Persistence**: A new document is saved in MongoDB with the resulting Cloudinary HTTPS URL and initial defaults (`totalSales: 0`, `ratingAverage: 0`, `ratingQuantity: 0`, `isDeleted: false`).
+      9. **Response**: Returns HTTP `201 Created` with the complete book document.
+
+      ### Validation Rules
+      - `title`: String, trimmed, non-empty, minimum length of 2 characters.
+      - `author`: String, non-empty.
+      - `stock`: Numeric, non-empty, non-negative integer.
+      - `description`: String, non-empty.
+      - `price`: Numeric, non-empty, non-negative, minimum length 1 character.
+      - `category`: Must match one of the predefined categories: `Fantasy`, `Action`, `Adventure`, `Mystery`, `Horror`, `Thriller`, `Romance`, `Self-help`, `Biography`. Cannot be empty.
+      - `coverImage`: Required binary file representing the book cover art.
+
+    requestBody:
+      required: true
+      description: |
+        Multipart form data containing book metadata and the cover image file.
+      content:
+        multipart/form-data:
+          schema:
+            $ref: "./schema.yaml#/components/schemas/CreateBookRequest"
+          encoding:
+            coverImage:
+              contentType: image/png, image/jpeg, image/webp
+
+    responses:
+      "201":
+        description: Book successfully created and added to the catalog.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/BookResponse"
+            example:
+              status: "success"
+              message: "Book is created"
+              data:
+                _id: "683aab454ae6c56e60594eb7"
+                title: "Atomic Habits"
+                author: "James Clear"
+                stock: 50
+                description: "An Easy & Proven Way to Build Good Habits & Break Bad Ones. Tiny Changes, Remarkable Results."
+                totalSales: 0
+                price: 19.99
+                category: "Self-help"
+                coverImage: "https://res.cloudinary.com/bookstore/image/upload/v1717145678/BookStore/atomic-habits.jpg"
+                ratingAverage: 0
+                ratingQuantity: 0
+                createdAt: "2026-10-04T12:00:00.000Z"
+                isDeleted: false
+
+      "400":
+        description: Validation error or book creation failure.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              emptyTitle:
+                summary: Missing book title
+                value:
+                  status: "Error"
+                  message: "please enter book name"
+
+              shortTitle:
+                summary: Book title less than 2 characters
+                value:
+                  status: "Error"
+                  message: "please enter correct book name"
+
+              emptyAuthor:
+                summary: Missing author
+                value:
+                  status: "Error"
+                  message: "author field should not be empty"
+
+              invalidAuthor:
+                summary: Author not a string
+                value:
+                  status: "Error"
+                  message: "please provide correct book's author"
+
+              emptyStock:
+                summary: Missing inventory stock
+                value:
+                  status: "Error"
+                  message: "please enter stock field"
+
+              invalidStock:
+                summary: Non-numeric inventory stock
+                value:
+                  status: "Error"
+                  message: "please enter correct stock"
+
+              emptyDescription:
+                summary: Missing description
+                value:
+                  status: "Error"
+                  message: "please enter your description field"
+
+              invalidDescription:
+                summary: Description not a string
+                value:
+                  status: "Error"
+                  message: "please provide correct description"
+
+              emptyPrice:
+                summary: Missing price
+                value:
+                  status: "Error"
+                  message: "please enter your price field"
+
+              invalidPrice:
+                summary: Non-numeric price
+                value:
+                  status: "Error"
+                  message: "please enter correct price"
+
+              shortPrice:
+                summary: Price length less than 1
+                value:
+                  status: "Error"
+                  message: "price min length must be 1 characters"
+
+              invalidCategory:
+                summary: Category not in allowed enum list
+                value:
+                  status: "Error"
+                  message: "please provide category according to list"
+
+              emptyCategory:
+                summary: Category field empty
+                value:
+                  status: "Error"
+                  message: "address field should not be empty"
+
+              creationFailed:
+                summary: Creation operation failed
+                value:
+                  status: "Error"
+                  message: "books is not created yet, please try again later"
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user lacks administrator privileges or is unverified.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              nonAdminRole:
+                summary: User does not hold admin role
+                value:
+                  status: "Error"
+                  message: "you are not allowed to perform this action"
+
+              unverifiedAccount:
+                summary: Administrator account email not verified
+                value:
+                  status: "Error"
+                  message: "you are not verified, please verified first then try again"
+
+      "429":
+        description: Rate limit exceeded (10 mutations per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error or Cloudinary upload failure.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+# ============================================================
+# 2. /books/{bookId} (GET, PATCH, DELETE)
+# ============================================================
+bookById:
+  # ------------------------------------------------------------
+  # GET /books/{bookId} - Retrieve single book with Redis caching
+  # ------------------------------------------------------------
+  get:
+    operationId: getBookById
+    security: []
+    tags:
+      - books
+
+    summary: Retrieve a book by its unique ID (with Redis caching)
+
+    description: |
+      Retrieves detailed information for a specific book identified by its unique MongoDB ObjectId.
+
+      ### High-Performance Redis Caching
+      This endpoint implements a **cache-aside** caching strategy using Redis:
+      1. The server checks for the Redis key `book:{bookId}`.
+      2. **Cache Hit**: If the key exists, cached JSON data is parsed and returned immediately without accessing the MongoDB database.
+      3. **Cache Miss**:
+         - Validates that `bookId` parameter is present and valid.
+         - Queries MongoDB via `Books.findById(bookId)`.
+         - The Mongoose `pre(/^find/)` middleware automatically filters out soft-deleted books (`isDeleted: false`).
+         - If the book is not found in MongoDB, returns HTTP `404 Not Found`.
+         - If found, writes the serialized book document into Redis under `book:{bookId}` and returns HTTP `200 OK`.
+
+      ### Rate Limiting
+      - Protected by `getRateLimiter`: Maximum **30 requests per minute** per client IP.
+
+    parameters:
+      - name: bookId
+        in: path
+        required: true
+        description: |
+          24-character hexadecimal MongoDB ObjectId of the book to retrieve.
+        schema:
+          type: string
+        example: "683aab454ae6c56e60594eb7"
+
+    responses:
+      "200":
+        description: Book found successfully (served from Redis cache or database).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/BookResponse"
+            example:
+              status: "success"
+              message: "Book is found"
+              data:
+                _id: "683aab454ae6c56e60594eb7"
+                title: "Atomic Habits"
+                author: "James Clear"
+                stock: 45
+                description: "An Easy & Proven Way to Build Good Habits & Break Bad Ones. Tiny Changes, Remarkable Results."
+                totalSales: 120
+                price: 19.99
+                category: "Self-help"
+                coverImage: "https://res.cloudinary.com/bookstore/image/upload/v1717145678/BookStore/atomic-habits.jpg"
+                ratingAverage: 4.8
+                ratingQuantity: 84
+                createdAt: "2026-05-30T10:15:30.000Z"
+                isDeleted: false
+
+      "400":
+        description: Missing or malformed book ID parameter.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Book id not found, please provide bookId in params"
+
+      "404":
+        description: Book not found in catalog or has been soft-deleted.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Book not found"
+
+      "429":
+        description: Rate limit exceeded (30 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error or Redis connection failure.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+  # ------------------------------------------------------------
+  # PATCH /books/{bookId} - Update book details or cover image (Admin Only)
+  # ------------------------------------------------------------
+  patch:
+    operationId: updateBook
+    security:
+      - bearerAuth: []
+    tags:
+      - books
+
+    summary: Update book details or replace cover image
+
+    description: |
+      Updates an existing book's metadata fields or replaces its cover image.
+
+      This operation is restricted to verified administrators (`role: 'admin'`).
+
+      ### Update Workflow
+      1. **ID Validation**: `validateId("bookId")` middleware verifies that `bookId` is a syntactically valid 24-character hexadecimal MongoDB ObjectId.
+      2. **Authentication & Authorization**: `protect` and `restrictTo("admin")` ensure caller has active admin credentials.
+      3. **Rate Limiting**: `mutationLimiter` enforces a rate limit of **10 requests per minute**.
+      4. **Image Replacement (Optional)**: If a new `coverImage` file is attached via `multipart/form-data`:
+         - The file is temporarily stored by Multer.
+         - Uploaded to Cloudinary under the `"BookStore"` folder.
+         - The local temporary file is removed via `fs.unlink`.
+         - The new Cloudinary `secure_url` replaces the existing `coverImage` in the update payload.
+      5. **Database Update**: Calls `Books.findByIdAndUpdate(bookId, updatePayload)`.
+      6. **Cache Refresh**: The updated book object is serialized and written to Redis key `book:{bookId}`, ensuring subsequent GET requests immediately reflect changes.
+      7. **Response**: Returns HTTP `200 OK` with the updated book entity.
+
+      ### Request Formats Supported
+      - `multipart/form-data`: Use when replacing the cover image (with or without textual metadata changes).
+      - `application/json`: Use when updating only text or numeric fields (title, author, price, stock, description, category).
+
+    parameters:
+      - name: bookId
+        in: path
+        required: true
+        description: |
+          24-character hexadecimal MongoDB ObjectId of the book to update.
+        schema:
+          type: string
+        example: "683aab454ae6c56e60594eb7"
+
+    requestBody:
+      required: false
+      description: |
+        Fields to be updated. All fields are optional; only provided fields are changed.
+      content:
+        multipart/form-data:
+          schema:
+            $ref: "./schema.yaml#/components/schemas/UpdateBookRequest"
+          encoding:
+            coverImage:
+              contentType: image/png, image/jpeg, image/webp
+        application/json:
+          schema:
+            $ref: "./schema.yaml#/components/schemas/UpdateBookRequest"
+          example:
+            price: 21.99
+            stock: 65
+            description: "Updated edition with new exercises and best practices for modern software development."
+
+    responses:
+      "200":
+        description: Book successfully updated and Redis cache synchronized.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/BookResponse"
+            example:
+              status: "success"
+              message: "book is updated"
+              data:
+                _id: "683aab454ae6c56e60594eb7"
+                title: "Atomic Habits: Expanded Edition"
+                author: "James Clear"
+                stock: 65
+                description: "Updated edition with new exercises and best practices for modern software development."
+                totalSales: 120
+                price: 21.99
+                category: "Self-help"
+                coverImage: "https://res.cloudinary.com/bookstore/image/upload/v1717149999/BookStore/atomic-habits-v2.jpg"
+                ratingAverage: 4.8
+                ratingQuantity: 84
+                createdAt: "2026-05-30T10:15:30.000Z"
+                isDeleted: false
+
+      "400":
+        description: Invalid book ID syntax or book not found for update.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              invalidIdSyntax:
+                summary: Invalid MongoDB ObjectId format
+                value:
+                  status: "Error"
+                  message: "Invalid Id, please enter correct id"
+
+              missingParamId:
+                summary: Missing bookId parameter
+                value:
+                  status: "Error"
+                  message: "Book id not found, please provide bookId in params"
+
+              bookNotFound:
+                summary: Book not found during update
+                value:
+                  status: "Error"
+                  message: "Book not found"
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user lacks administrator privileges or is unverified.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              nonAdminRole:
+                summary: User does not hold admin role
+                value:
+                  status: "Error"
+                  message: "you are not allowed to perform this action"
+
+              unverifiedAccount:
+                summary: Administrator account email not verified
+                value:
+                  status: "Error"
+                  message: "you are not verified, please verified first then try again"
+
+      "429":
+        description: Rate limit exceeded (10 mutations per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error or Cloudinary upload failure.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+  # ------------------------------------------------------------
+  # DELETE /books/{bookId} - Soft-delete a book (Admin Only)
+  # ------------------------------------------------------------
+  delete:
+    operationId: deleteBook
+    security:
+      - bearerAuth: []
+    tags:
+      - books
+
+    summary: Soft-delete a book from the catalog
+
+    description: |
+      Performs a soft deletion on the book specified by `bookId`.
+
+      This operation is restricted to verified administrators (`role: 'admin'`).
+
+      ### Soft-Deletion Architecture
+      Rather than permanently purging the record from MongoDB, the controller
+      updates the document with `{ isDeleted: true }`:
+      1. Preserves sales history, order relations, and aggregate analytics integrity.
+      2. Mongoose `pre(/^find/)` middleware automatically intercepts all queries (`find`, `findOne`, `findById`) and applies `{ isDeleted: false }`, ensuring deleted books are immediately hidden from the public store catalog.
+      3. If the book does not exist or was already deleted, returns HTTP `404 Not Found`.
+
+      ### Rate Limiting
+      - Protected by `generalRateLimiter`: Maximum **15 requests per minute** per client IP.
+
+    parameters:
+      - name: bookId
+        in: path
+        required: true
+        description: |
+          24-character hexadecimal MongoDB ObjectId of the book to soft-delete.
+        schema:
+          type: string
+        example: "683aab454ae6c56e60594eb7"
+
+    responses:
+      "204":
+        description: Book successfully soft-deleted from the active catalog.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/DeleteBookResponse"
+            example:
+              status: "success"
+              message: "Book is deleted"
+
+      "400":
+        description: Missing or malformed book ID parameter.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Book id not found, please provide bookId in params"
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user lacks administrator privileges or is unverified.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              nonAdminRole:
+                summary: User does not hold admin role
+                value:
+                  status: "Error"
+                  message: "you are not allowed to perform this action"
+
+              unverifiedAccount:
+                summary: Administrator account email not verified
+                value:
+                  status: "Error"
+                  message: "you are not verified, please verified first then try again"
+
+      "404":
+        description: Book with the specified ID was not found or has already been deleted.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Book not found"
+
+      "429":
+        description: Rate limit exceeded (15 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"

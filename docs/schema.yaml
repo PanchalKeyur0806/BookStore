@@ -1564,3 +1564,278 @@ components:
         data:
           $ref: "#/components/schemas/User"
 
+    # =========================================================
+    # BOOK SCHEMAS
+    # =========================================================
+
+    Book:
+      type: object
+      description: |
+        Complete Book entity representing a catalog item in the bookstore database.
+        Includes product details, pricing, inventory stock, categorisation,
+        Cloudinary cover image URL, and customer rating aggregates.
+      required:
+        - _id
+        - title
+        - author
+        - stock
+        - description
+        - price
+        - category
+        - coverImage
+      properties:
+        _id:
+          type: string
+          description: Unique 24-character hexadecimal MongoDB ObjectId of the book.
+          example: "683aab454ae6c56e60594eb7"
+        title:
+          type: string
+          description: Title or name of the book.
+          example: "Atomic Habits: An Easy & Proven Way to Build Good Habits & Break Bad Ones"
+        author:
+          type: string
+          description: Full name of the book's author.
+          example: "James Clear"
+        stock:
+          type: integer
+          minimum: 0
+          description: Available inventory quantity currently in stock.
+          example: 45
+        description:
+          type: string
+          description: Detailed synopsis, summary, or blurb of the book.
+          example: "No matter your goals, Atomic Habits offers a proven framework for improving every day."
+        totalSales:
+          type: integer
+          default: 0
+          description: Total number of units sold across all completed customer orders.
+          example: 120
+        price:
+          type: number
+          format: double
+          minimum: 0
+          description: Retail purchase price of the book in USD.
+          example: 24.99
+        category:
+          type: string
+          enum:
+            - Fantasy
+            - Action
+            - Adventure
+            - Mystery
+            - Horror
+            - Thriller
+            - Romance
+            - Self-help
+            - Biography
+          description: Genre or department category classification.
+          example: "Self-help"
+        coverImage:
+          type: string
+          format: uri
+          description: Public HTTPS URL of the book cover image stored and delivered via Cloudinary CDN.
+          example: "https://res.cloudinary.com/bookstore/image/upload/v1717145678/BookStore/atomic-habits.jpg"
+        ratingAverage:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 5
+          default: 0
+          description: Average customer review rating score calculated from submitted reviews (scale 1.0 - 5.0).
+          example: 4.8
+        ratingQuantity:
+          type: integer
+          minimum: 0
+          default: 0
+          description: Total number of customer ratings/reviews submitted for this book.
+          example: 84
+        createdAt:
+          type: string
+          format: date-time
+          description: UTC timestamp indicating when the book was first added to the catalog.
+          example: "2026-05-30T10:15:30.000Z"
+        isDeleted:
+          type: boolean
+          default: false
+          description: |
+            Soft-deletion indicator flag. When set to `true`, the book is hidden
+            from all public browsing and lookup queries via Mongoose query middleware.
+          example: false
+
+    CreateBookRequest:
+      type: object
+      description: |
+        Payload required to register a new book in the bookstore catalog.
+        Submitted as `multipart/form-data` to accommodate both book metadata
+        and the book's cover image file upload.
+      required:
+        - title
+        - author
+        - stock
+        - description
+        - price
+        - category
+        - coverImage
+      properties:
+        title:
+          type: string
+          minLength: 2
+          description: Title or name of the book (minimum 2 characters).
+          example: "Clean Code: A Handbook of Agile Software Craftsmanship"
+        author:
+          type: string
+          description: Full name of the author. Cannot be empty.
+          example: "Robert C. Martin"
+        stock:
+          type: integer
+          minimum: 0
+          description: Initial inventory quantity. Must be a valid non-negative number.
+          example: 30
+        description:
+          type: string
+          description: Detailed description or synopsis of the book content.
+          example: "Even bad code can function. But if code isn't clean, it can bring a development organization to its knees."
+        price:
+          type: number
+          format: double
+          minimum: 0
+          description: Retail price of the book. Must be non-negative and at least 1 character in length.
+          example: 37.99
+        category:
+          type: string
+          enum:
+            - Fantasy
+            - Action
+            - Adventure
+            - Mystery
+            - Horror
+            - Thriller
+            - Romance
+            - Self-help
+            - Biography
+          description: Genre category selected from the predefined list of allowed categories.
+          example: "Self-help"
+        coverImage:
+          type: string
+          format: binary
+          description: |
+            Cover image file (JPEG, PNG, WebP) uploaded via form-data.
+            The server automatically transmits this file to Cloudinary in the `BookStore` folder
+            and deletes the local temporary file after upload.
+
+    UpdateBookRequest:
+      type: object
+      description: |
+        Payload for updating an existing book's metadata or replacing its cover image.
+        All fields are optional; only provided fields will be updated.
+        Supports both `multipart/form-data` (when uploading a replacement cover image)
+        and `application/json` (when updating text/numeric fields only).
+      properties:
+        title:
+          type: string
+          minLength: 2
+          description: Updated book title (minimum 2 characters).
+          example: "Clean Code: A Handbook of Agile Software Craftsmanship (Updated Edition)"
+        author:
+          type: string
+          description: Updated author name.
+          example: "Robert C. Martin"
+        stock:
+          type: integer
+          minimum: 0
+          description: Updated inventory stock quantity.
+          example: 50
+        description:
+          type: string
+          description: Updated synopsis or description.
+          example: "Updated edition with new exercises and best practices for modern software development."
+        price:
+          type: number
+          format: double
+          minimum: 0
+          description: Updated retail price.
+          example: 39.99
+        category:
+          type: string
+          enum:
+            - Fantasy
+            - Action
+            - Adventure
+            - Mystery
+            - Horror
+            - Thriller
+            - Romance
+            - Self-help
+            - Biography
+          description: Updated genre category.
+          example: "Self-help"
+        coverImage:
+          type: string
+          format: binary
+          description: |
+            Optional replacement cover image file. If supplied, the image is uploaded to Cloudinary,
+            and the book's `coverImage` attribute is updated to the newly generated URL.
+
+    BookResponse:
+      type: object
+      description: Standard API response wrapper returning a single book object.
+      required:
+        - status
+        - message
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        message:
+          type: string
+          description: Human-readable operational message.
+          example: "Book is found"
+        data:
+          $ref: "#/components/schemas/Book"
+
+    GetAllBooksResponse:
+      type: object
+      description: Paginated API response returning a list of books matching search and filter criteria.
+      required:
+        - status
+        - length
+        - pagination
+        - message
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        length:
+          type: integer
+          description: Number of book records returned in the current page.
+          example: 10
+        pagination:
+          $ref: "#/components/schemas/PaginationMetadata"
+        message:
+          type: string
+          description: Result indicator ("all books found" when records exist, "books not found" when query yields 0 items).
+          example: "all books found"
+        data:
+          type: array
+          description: Array of book records for the current page.
+          items:
+            $ref: "#/components/schemas/Book"
+
+    DeleteBookResponse:
+      type: object
+      description: Response payload returned upon soft-deleting a book from the catalog.
+      required:
+        - status
+        - message
+      properties:
+        status:
+          type: string
+          example: "success"
+        message:
+          type: string
+          description: Confirmation message indicating the book has been deleted.
+          example: "Book is deleted"
+
+
