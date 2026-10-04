@@ -445,3 +445,1122 @@ components:
           type: string
           description: Human-readable explanation of the error.
           example: "please provide valid email address"
+
+    # =========================================================
+    # ADMIN SCHEMAS
+    # =========================================================
+
+    AdminDashboardResponse:
+      type: object
+      description: Statistics and inventory information used by the administrator dashboard.
+      required:
+        - status
+        - salesData
+        - userStats
+        - orderStats
+        - lowInventory
+      properties:
+        status:
+          type: string
+          description: Indicates whether the request was successful.
+          example: "success"
+        salesData:
+          $ref: "#/components/schemas/AdminSalesData"
+        userStats:
+          $ref: "#/components/schemas/AdminUserStats"
+        orderStats:
+          $ref: "#/components/schemas/AdminOrderStats"
+        lowInventory:
+          type: array
+          description: Books whose stock is at or below the low-inventory threshold.
+          items:
+            $ref: "#/components/schemas/LowInventoryBook"
+
+    AdminSalesData:
+      type: object
+      description: Aggregated sales and revenue statistics.
+      properties:
+        totalRevenue:
+          $ref: "#/components/schemas/RevenueStatistics"
+        totalOrders:
+          $ref: "#/components/schemas/CountStatistics"
+        totalBooks:
+          $ref: "#/components/schemas/CountStatistics"
+        monthlyTotal:
+          $ref: "#/components/schemas/SalesPeriodStatistics"
+        yearlyTotal:
+          $ref: "#/components/schemas/SalesPeriodStatistics"
+        dailySales:
+          type: array
+          description: Daily paid sales for the last 30 days.
+          items:
+            $ref: "#/components/schemas/DailySales"
+        topBook:
+          $ref: "#/components/schemas/TopBook"
+
+    RevenueStatistics:
+      type: object
+      description: Total revenue generated from applicable orders.
+      properties:
+        total:
+          type: number
+          format: double
+          description: Total revenue amount.
+          example: 125000
+
+    CountStatistics:
+      type: object
+      description: A simple aggregate count.
+      properties:
+        count:
+          type: integer
+          description: Number of records.
+          example: 250
+        total:
+          type: integer
+          description: Total count of records.
+          example: 250
+
+    SalesPeriodStatistics:
+      type: object
+      description: Sales amount and order count for a specific period.
+      properties:
+        total:
+          type: number
+          format: double
+          description: Total sales amount during the period.
+          example: 18500
+        count:
+          type: integer
+          description: Number of paid orders during the period.
+          example: 42
+
+    DailySales:
+      type: object
+      description: Sales statistics for a single day.
+      required:
+        - date
+        - sales
+        - count
+      properties:
+        date:
+          type: string
+          format: date
+          description: Date for which the sales were recorded.
+          example: "2026-09-27"
+        sales:
+          type: number
+          format: double
+          description: Total sales generated on the date.
+          example: 1250
+        count:
+          type: integer
+          description: Number of paid orders on the date.
+          example: 5
+
+    TopBook:
+      type: object
+      description: Best-selling book based on the number of units sold.
+      properties:
+        bookId:
+          type: string
+          description: Unique identifier of the book.
+          example: "6ab8c6b4deb5c92fda07308a"
+        title:
+          type: string
+          description: Title of the best-selling book.
+          example: "Clean Code"
+        totalSold:
+          type: integer
+          description: Total number of units sold.
+          example: 45
+        revenue:
+          type: number
+          format: double
+          description: Revenue associated with the book.
+          example: 13500
+
+    AdminUserStats:
+      type: object
+      description: User registration and role statistics.
+      properties:
+        totalUsers:
+          $ref: "#/components/schemas/CountStatistics"
+        newUserThisMonth:
+          $ref: "#/components/schemas/CountStatistics"
+        userByRoles:
+          type: array
+          description: Number of users grouped by their role.
+          items:
+            $ref: "#/components/schemas/UserRoleStatistics"
+
+    UserRoleStatistics:
+      type: object
+      description: Number of users belonging to a specific role.
+      required:
+        - role
+        - count
+      properties:
+        role:
+          type: string
+          description: User role.
+          example: "user"
+        count:
+          type: integer
+          description: Number of users with this role.
+          example: 420
+
+    AdminOrderStats:
+      type: object
+      description: Statistics about order statuses.
+      properties:
+        orderByStatus:
+          type: array
+          description: Number of orders grouped by their current status.
+          items:
+            $ref: "#/components/schemas/OrderStatusStatistics"
+        pendingOrders:
+          $ref: "#/components/schemas/CountStatistics"
+
+    OrderStatusStatistics:
+      type: object
+      description: Number of orders having a specific order status.
+      required:
+        - orderStatus
+        - count
+      properties:
+        orderStatus:
+          type: string
+          description: Current status of the orders.
+          example: "paid"
+        count:
+          type: integer
+          description: Number of orders with this status.
+          example: 210
+
+    LowInventoryBook:
+      type: object
+      description: Book with stock at or below the low-inventory threshold.
+      required:
+        - title
+        - author
+        - stock
+      properties:
+        title:
+          type: string
+          description: Title of the book.
+          example: "Clean Code"
+        author:
+          type: string
+          description: Author of the book.
+          example: "Robert C. Martin"
+        stock:
+          type: integer
+          description: Number of copies currently available in inventory.
+          example: 5
+
+    # =========================================================
+    # PAGINATION REUSABLE SCHEMA
+    # =========================================================
+
+    PaginationMetadata:
+      type: object
+      description: Pagination information returned with paginated admin queries.
+      required:
+        - totalItems
+        - currentPage
+        - hasNextPage
+      properties:
+        totalItems:
+          type: integer
+          description: Total number of items matching the query.
+          example: 50
+        totalPages:
+          type: integer
+          description: Total number of pages available.
+          example: 5
+        totalPage:
+          type: integer
+          description: Total number of pages available (alias used in some responses).
+          example: 5
+        currentPage:
+          type: integer
+          description: Current active page number.
+          example: 1
+        hasNextPage:
+          type: boolean
+          description: Indicates whether a subsequent page is available.
+          example: true
+
+    # =========================================================
+    # SALES ANALYTICS SCHEMAS
+    # =========================================================
+
+    SalesAnalyticsItem:
+      type: object
+      description: Sales metrics aggregated for a specific time interval.
+      required:
+        - _id
+        - totalRevenue
+        - avgRevenue
+        - totalOrders
+        - totalItems
+      properties:
+        _id:
+          type: string
+          description: Formatted date bucket (e.g. YYYY-MM-DD, YYYY-Www, or YYYY-MM depending on groupBy).
+          example: "2026-10-01"
+        totalRevenue:
+          type: number
+          format: double
+          description: Total revenue generated in this bucket from non-cancelled orders.
+          example: 4500
+        avgRevenue:
+          type: number
+          format: double
+          description: Average order value in this bucket.
+          example: 450
+        totalOrders:
+          type: integer
+          description: Count of non-cancelled orders in this bucket.
+          example: 10
+        totalItems:
+          type: integer
+          description: Total quantity of book items sold across orders in this bucket.
+          example: 15
+
+    SalesAnalyticsResponse:
+      type: object
+      description: Response payload containing sales analytics grouped by time period.
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        data:
+          type: array
+          description: Time-series sales analytics entries.
+          items:
+            $ref: "#/components/schemas/SalesAnalyticsItem"
+
+    # =========================================================
+    # BOOK ANALYTICS SCHEMAS
+    # =========================================================
+
+    BookInventoryOverview:
+      type: object
+      description: Stock and catalog distribution summary across books.
+      required:
+        - total
+        - totalActiveBooks
+        - totalInactiveBooks
+        - outOfStockBooks
+        - lowStockBooks
+      properties:
+        total:
+          type: integer
+          description: Total books in catalog.
+          example: 120
+        totalActiveBooks:
+          type: integer
+          description: Number of active books (isDeleted != true).
+          example: 110
+        totalInactiveBooks:
+          type: integer
+          description: Number of deleted or inactive books.
+          example: 10
+        outOfStockBooks:
+          type: integer
+          description: Books with zero inventory remaining.
+          example: 5
+        lowStockBooks:
+          type: integer
+          description: Books with stock fewer than 100 units.
+          example: 22
+
+    BookSalesRankingItem:
+      type: object
+      description: Sales performance ranking entry for a book.
+      required:
+        - _id
+        - totalSold
+        - totalOrders
+      properties:
+        _id:
+          type: string
+          description: Unique identifier of the book.
+          example: "664b1f89e21b8c12a8901234"
+        totalSold:
+          type: integer
+          description: Total units sold across paid orders.
+          example: 85
+        totalOrders:
+          type: integer
+          description: Total count of paid orders containing this book.
+          example: 42
+        book:
+          type: array
+          description: Populated book document details from database lookup.
+          items:
+            type: object
+
+    BookReviewRankingItem:
+      type: object
+      description: Review rating ranking entry for a book.
+      required:
+        - bookId
+        - totalRating
+        - reviewCount
+        - avgRating
+      properties:
+        bookId:
+          type: string
+          description: Unique identifier of the reviewed book.
+          example: "664b1f89e21b8c12a8901234"
+        totalRating:
+          type: number
+          description: Cumulative sum of ratings.
+          example: 245
+        reviewCount:
+          type: integer
+          description: Total number of customer reviews.
+          example: 52
+        avgRating:
+          type: number
+          format: double
+          description: Average rating score (1 to 5).
+          example: 4.71
+
+    BookAnalyticsData:
+      type: object
+      description: Detailed breakdown of book inventory, sales rankings, and review statistics.
+      required:
+        - booksAnalytic
+        - bookSaleAnalytics
+        - bookReviewAnalytics
+      properties:
+        booksAnalytic:
+          type: array
+          description: Aggregate book inventory metrics.
+          items:
+            $ref: "#/components/schemas/BookInventoryOverview"
+        bookSaleAnalytics:
+          type: array
+          description: Top 10 best-selling and top 10 low-selling book rankings.
+          items:
+            type: object
+            properties:
+              bestSellingBooks:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BookSalesRankingItem"
+              lowSellingBooks:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BookSalesRankingItem"
+        bookReviewAnalytics:
+          type: array
+          description: Top 10 most-rated and top 10 highest-rated book rankings.
+          items:
+            type: object
+            properties:
+              mostRatedBook:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BookReviewRankingItem"
+              highestRatedBook:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BookReviewRankingItem"
+
+    BookAnalyticsResponse:
+      type: object
+      description: Response payload for comprehensive catalog analytics.
+      required:
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        stauts:
+          type: string
+          description: Response status key returned by the controller.
+          example: "success"
+        data:
+          $ref: "#/components/schemas/BookAnalyticsData"
+
+    # =========================================================
+    # DEAD MOVING STOCK SCHEMAS
+    # =========================================================
+
+    DeadStockBook:
+      type: object
+      description: Details of a book with zero sales over the preceding 30 days.
+      required:
+        - _id
+        - title
+        - stock
+        - author
+        - price
+        - totalSold
+      properties:
+        _id:
+          type: string
+          description: Unique identifier of the book.
+          example: "664b1f89e21b8c12a8901234"
+        title:
+          type: string
+          example: "Legacy Architecture in Practice"
+        stock:
+          type: integer
+          description: Number of copies currently in stock.
+          example: 40
+        author:
+          type: string
+          example: "Martin Fowler"
+        price:
+          type: number
+          format: double
+          example: 49.99
+        totalSold:
+          type: integer
+          description: Copies sold in last 30 days (0 for dead stock).
+          example: 0
+
+    DeadStockResponse:
+      type: object
+      description: Paginated response listing dead moving inventory items.
+      required:
+        - status
+        - data
+        - pagination
+      properties:
+        status:
+          type: string
+          example: "success"
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeadStockBook"
+        pagination:
+          $ref: "#/components/schemas/PaginationMetadata"
+
+    # =========================================================
+    # BOOK PERFORMANCE SCHEMAS
+    # =========================================================
+
+    BookPerformanceItem:
+      type: object
+      description: Comprehensive performance profile for an individual book.
+      required:
+        - _id
+        - title
+        - author
+        - price
+        - stock
+        - category
+        - orderAnalytics
+        - wishlistAnalytics
+        - bookRating
+      properties:
+        _id:
+          type: string
+          description: Unique book identifier.
+          example: "664b1f89e21b8c12a8901234"
+        title:
+          type: string
+          example: "Clean Code"
+        author:
+          type: string
+          example: "Robert C. Martin"
+        price:
+          type: number
+          example: 450
+        stock:
+          type: integer
+          example: 25
+        category:
+          type: string
+          example: "Action"
+        orderAnalytics:
+          type: array
+          description: Lifetime sales count and revenue generated from paid orders.
+          items:
+            type: object
+            properties:
+              totalSold:
+                type: integer
+                example: 15
+              totalRevenue:
+                type: number
+                format: double
+                example: 6750
+        wishlistAnalytics:
+          type: array
+          description: Total wishlist inclusions for this book.
+          items:
+            type: object
+            properties:
+              totalWishlistCount:
+                type: integer
+                example: 8
+        bookRating:
+          type: array
+          description: Average review rating.
+          items:
+            type: object
+            properties:
+              averageRating:
+                type: number
+                format: double
+                example: 4.5
+
+    BookPerformanceResponse:
+      type: object
+      description: Paginated response listing performance statistics for all books.
+      required:
+        - status
+        - pagination
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        pagination:
+          $ref: "#/components/schemas/PaginationMetadata"
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/BookPerformanceItem"
+
+    # =========================================================
+    # CATEGORY SALES & TREND SCHEMAS
+    # =========================================================
+
+    CategoryRevenueItem:
+      type: object
+      description: Aggregated sales units and revenue for a specific book category.
+      required:
+        - category
+        - getSales
+        - getRevenue
+      properties:
+        category:
+          type: string
+          description: Book category name.
+          enum:
+            - Fantasy
+            - Action
+            - Adventure
+            - Mystery
+            - Horror
+            - Thriller
+            - Romance
+            - Self-help
+            - Biography
+          example: "Fantasy"
+        getSales:
+          type: integer
+          description: Total items sold in this category.
+          example: 120
+        getRevenue:
+          type: number
+          format: double
+          description: Total revenue generated in this category.
+          example: 48000
+
+    CategoryRevenueResponse:
+      type: object
+      description: Response payload containing sales and revenue grouped across all categories.
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryRevenueItem"
+
+    CategoryTrendItem:
+      type: object
+      description: Monthly sales volume and revenue metric for a category.
+      required:
+        - year
+        - totalQuantity
+        - totalRevenue
+      properties:
+        year:
+          type: string
+          description: Year and month of the data point (format YYYY-MM).
+          example: "2026-01"
+        category:
+          type:
+            - string
+            - "null"
+          description: Category name (null when densified for months with zero sales).
+          example: "Fantasy"
+        totalQuantity:
+          type: integer
+          description: Total items sold in this month.
+          example: 25
+        totalRevenue:
+          type: number
+          format: double
+          description: Total revenue generated in this month.
+          example: 12500
+
+    CategoryTrendResponse:
+      type: object
+      description: Response payload with monthly category sales trends.
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryTrendItem"
+
+    # =========================================================
+    # BOOK RATING DISTRIBUTION SCHEMAS
+    # =========================================================
+
+    BookRatingDistributionItem:
+      type: object
+      description: Rating star counts (1 to 5 stars) for an individual book.
+      required:
+        - bookId
+        - fiveStarRating
+        - fourStarRating
+        - threeStarRating
+        - twoStarRating
+        - oneStarRating
+      properties:
+        bookId:
+          type: string
+          description: Unique identifier of the reviewed book.
+          example: "664b1f89e21b8c12a8901234"
+        fiveStarRating:
+          type: integer
+          description: Count of 5-star ratings.
+          example: 25
+        fourStarRating:
+          type: integer
+          description: Count of 4-star ratings.
+          example: 12
+        threeStarRating:
+          type: integer
+          description: Count of 3-star ratings.
+          example: 5
+        twoStarRating:
+          type: integer
+          description: Count of 2-star ratings.
+          example: 2
+        oneStarRating:
+          type: integer
+          description: Count of 1-star ratings.
+          example: 1
+
+    BookRatingDistributionResponse:
+      type: object
+      description: Paginated response listing rating breakdown per book.
+      required:
+        - status
+        - pagination
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        pagination:
+          $ref: "#/components/schemas/PaginationMetadata"
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/BookRatingDistributionItem"
+
+    # =========================================================
+    # ORDER ANALYTICS & GROWTH SCHEMAS
+    # =========================================================
+
+    OrderStatusCount:
+      type: object
+      description: Count of orders possessing a specific status.
+      required:
+        - orderStatus
+        - totalOrders
+      properties:
+        orderStatus:
+          type: string
+          description: Status of the order (e.g. paid, pending, cancelled).
+          example: "paid"
+        totalOrders:
+          type: integer
+          description: Number of orders currently in this status.
+          example: 150
+
+    OrderCancellationRate:
+      type: object
+      description: Total orders, cancelled order count, and calculated cancellation percentage.
+      required:
+        - totalOrders
+        - cancelledOrders
+        - cancellationRate
+      properties:
+        totalOrders:
+          type: integer
+          description: Overall orders placed.
+          example: 180
+        cancelledOrders:
+          type: integer
+          description: Total cancelled orders.
+          example: 10
+        cancellationRate:
+          type: number
+          format: double
+          description: Percentage of orders cancelled.
+          example: 5.56
+
+    OrderAnalyticsData:
+      type: object
+      description: Order status counts and cancellation rate metrics.
+      required:
+        - orderStatusAnalytics
+        - orderCancellationAnalytics
+      properties:
+        orderStatusAnalytics:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderStatusCount"
+        orderCancellationAnalytics:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderCancellationRate"
+
+    OrderAnalyticsResponse:
+      type: object
+      description: Response payload for order status distribution and cancellation analytics.
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        data:
+          $ref: "#/components/schemas/OrderAnalyticsData"
+
+    DailyOrderGrowthItem:
+      type: object
+      description: Count of orders placed on a specific date.
+      required:
+        - date
+        - totalOrders
+      properties:
+        date:
+          type: string
+          format: date
+          description: Calendar date (YYYY-MM-DD).
+          example: "2026-09-01"
+        totalOrders:
+          type: integer
+          description: Count of orders created on this date.
+          example: 12
+
+    OrderGrowthResponse:
+      type: object
+      description: Response payload for daily order growth over a date range.
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/DailyOrderGrowthItem"
+
+    # =========================================================
+    # AVERAGE ORDER VALUE SCHEMAS
+    # =========================================================
+
+    MonthlyAvgOrderValueItem:
+      type: object
+      description: Monthly metrics for completed orders, total revenue, and average order value.
+      required:
+        - month
+        - completedOrders
+        - totalRevenue
+        - avgOrderValue
+      properties:
+        month:
+          type: string
+          description: Year and month (YYYY-MM).
+          example: "2026-01"
+        completedOrders:
+          type: integer
+          description: Count of completed paid orders in this month.
+          example: 45
+        totalRevenue:
+          type: number
+          format: double
+          description: Total revenue generated from paid orders in this month.
+          example: 20250
+        avgOrderValue:
+          type: number
+          format: double
+          description: Average order value (totalRevenue / completedOrders) rounded to 2 decimal places.
+          example: 450
+
+    AverageOrderValueResponse:
+      type: object
+      description: Response payload for monthly average order value trends.
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/MonthlyAvgOrderValueItem"
+
+    # =========================================================
+    # CUSTOMER ANALYTICS SCHEMAS
+    # =========================================================
+
+    MonthlyUserGrowthItem:
+      type: object
+      description: New user registrations recorded in a given month.
+      required:
+        - month
+        - totalUsers
+      properties:
+        month:
+          type: string
+          description: Year and month (YYYY-MM).
+          example: "2026-01"
+        totalUsers:
+          type: integer
+          description: Number of user accounts created during this month.
+          example: 15
+
+    TopPayingCustomerItem:
+      type: object
+      description: Top customer ranked by total expenditure on completed orders.
+      required:
+        - customerId
+        - totalOrders
+        - totalMoneySpent
+      properties:
+        customerId:
+          type: string
+          description: Unique customer user identifier.
+          example: "664b1f89e21b8c12a8901234"
+        totalOrders:
+          type: integer
+          description: Number of paid orders placed by this customer.
+          example: 12
+        totalMoneySpent:
+          type: number
+          format: double
+          description: Total spending amount across all paid orders.
+          example: 5400
+
+    ReturningCustomerRate:
+      type: object
+      description: Retention metrics comparing single-order vs repeat customers.
+      required:
+        - totalCustomers
+        - returningCustomers
+        - returningCustomersRate
+      properties:
+        totalCustomers:
+          type: integer
+          description: Total unique customers who placed at least one paid order.
+          example: 120
+        returningCustomers:
+          type: integer
+          description: Customers who placed more than one paid order.
+          example: 35
+        returningCustomersRate:
+          type: number
+          format: double
+          description: Percentage of returning customers relative to total customers.
+          example: 29.17
+
+    CustomerAnalyticsData:
+      type: object
+      description: Comprehensive metrics on user registration growth, top spenders, and repeat buyers.
+      required:
+        - userAnalytics
+        - topPayingCustomers
+        - returningCustomers
+      properties:
+        userAnalytics:
+          type: array
+          description: Monthly user registration growth.
+          items:
+            $ref: "#/components/schemas/MonthlyUserGrowthItem"
+        topPayingCustomers:
+          type: array
+          description: Top 10 highest-spending customers.
+          items:
+            $ref: "#/components/schemas/TopPayingCustomerItem"
+        returningCustomers:
+          type: array
+          description: Repeat customer retention metrics.
+          items:
+            $ref: "#/components/schemas/ReturningCustomerRate"
+
+    CustomerAnalyticsResponse:
+      type: object
+      description: Response payload for customer registration, top spender, and retention analytics.
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        data:
+          $ref: "#/components/schemas/CustomerAnalyticsData"
+
+    # =========================================================
+    # PAYMENT ANALYTICS SCHEMAS
+    # =========================================================
+
+    PaymentStatusAmounts:
+      type: object
+      description: Payment counts and totals categorized by payment status.
+      required:
+        - successfullPayments
+        - successfullAmounts
+        - failedPayments
+        - failedAmounts
+        - refundedPayments
+        - refundedAmounts
+      properties:
+        successfullPayments:
+          type: integer
+          description: Number of successful payments.
+          example: 180
+        successfullAmounts:
+          type: number
+          format: double
+          description: Total monetary sum of successful payments.
+          example: 81000
+        failedPayments:
+          type: integer
+          description: Number of failed payments.
+          example: 12
+        failedAmounts:
+          type: number
+          format: double
+          description: Total monetary sum of failed payments.
+          example: 5400
+        refundedPayments:
+          type: integer
+          description: Number of refunded payments.
+          example: 5
+        refundedAmounts:
+          type: number
+          format: double
+          description: Total monetary sum of refunded payments.
+          example: 2250
+
+    PaymentStatusRates:
+      type: object
+      description: Success and failure percentage rates of processed transactions.
+      required:
+        - successfullPayments
+        - failedPayments
+        - totalPayments
+        - successRate
+        - failedRate
+      properties:
+        successfullPayments:
+          type: integer
+          description: Total successful/completed transactions.
+          example: 185
+        failedPayments:
+          type: integer
+          description: Total failed transactions.
+          example: 12
+        totalPayments:
+          type: integer
+          description: Total payment attempts recorded.
+          example: 197
+        successRate:
+          type: number
+          format: double
+          description: Success rate percentage rounded to 2 decimal places.
+          example: 93.91
+        failedRate:
+          type: number
+          format: double
+          description: Failure rate percentage rounded to 2 decimal places.
+          example: 6.09
+
+    PaymentAnalyticsData:
+      type: object
+      description: Payment status totals and success/failure rates.
+      required:
+        - paymentStatusAnalytics
+        - paymentStatusRate
+      properties:
+        paymentStatusAnalytics:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaymentStatusAmounts"
+        paymentStatusRate:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaymentStatusRates"
+
+    PaymentAnalyticsResponse:
+      type: object
+      description: Response payload for payment status and rate analytics.
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        data:
+          $ref: "#/components/schemas/PaymentAnalyticsData"
+
+    # =========================================================
+    # USER DEACTIVATION SCHEMA
+    # =========================================================
+
+    DeactivateUserResponse:
+      type: object
+      description: Response returned when an administrator suspends a user account.
+      required:
+        - status
+        - message
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        message:
+          type: string
+          example: "User is suspended"
+        data:
+          $ref: "#/components/schemas/User"
+

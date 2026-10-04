@@ -1,0 +1,1301 @@
+# admin.yaml
+#
+# Administrator-related API routes for the BookStore REST API.
+#
+# This file contains Path Item Objects that can be referenced
+# individually from the root openapi.yaml file.
+#
+# All endpoints require an authenticated user with administrator privileges (role: 'admin').
+
+# ============================================================
+# 1. ADMIN DASHBOARD
+# ============================================================
+dashboard:
+  get:
+    operationId: getAdminDashboard
+    security:
+      - bearerAuth: []
+    tags:
+      - admin
+
+    summary: Get admin dashboard statistics
+
+    description: |
+      Retrieves aggregated key performance statistics for the administrator dashboard.
+
+      The dashboard aggregates:
+      - Total revenue from non-cancelled orders
+      - Total count of orders (all statuses)
+      - Total books Ordered in system
+      - Total sales and order count for the current month
+      - Total sales and order count for the current year
+      - Daily paid sales for the last 30 days
+      - Best-selling book (by units sold and revenue)
+      - Total registered users count
+      - New users registered during the current month
+      - User distribution by non-admin roles (user, seller, etc.)
+      - Orders grouped by order status (paid, pending, cancelled, etc.)
+      - Pending orders count
+      - Books with low inventory (stock <= 10)
+
+      Rate limit: 30 requests per minute.
+
+    responses:
+      "200":
+        description: Dashboard statistics retrieved successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/AdminDashboardResponse"
+            example:
+              status: "success"
+              salesData:
+                totalRevenue:
+                  total: 125000
+                totalOrders:
+                  total: 250
+                totalBooks:
+                  total: 85
+                monthlyTotal:
+                  total: 18500
+                  count: 42
+                yearlyTotal:
+                  total: 125000
+                  count: 250
+                dailySales:
+                  - date: "2026-09-27"
+                    sales: 1250
+                    count: 5
+                  - date: "2026-09-28"
+                    sales: 2100
+                    count: 8
+                topBook:
+                  bookId: "6ab8c6b4deb5c92fda07308a"
+                  title: "Clean Code"
+                  totalSold: 45
+                  revenue: 13500
+              userStats:
+                totalUsers:
+                  count: 450
+                newUserThisMonth:
+                  count: 38
+                userByRoles:
+                  - role: "user"
+                    count: 420
+                  - role: "seller"
+                    count: 30
+              orderStats:
+                orderByStatus:
+                  - orderStatus: "paid"
+                    count: 210
+                  - orderStatus: "pending"
+                    count: 25
+                  - orderStatus: "cancelled"
+                    count: 15
+                pendingOrders:
+                  count: 25
+              lowInventory:
+                - title: "Clean Code"
+                  author: "Robert C. Martin"
+                  stock: 5
+                - title: "The Pragmatic Programmer"
+                  author: "Andrew Hunt"
+                  stock: 8
+
+      "401":
+        description: Authentication token missing or invalid.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user does not have administrator privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not allowed to perform this action"
+
+      "429":
+        description: Rate limit exceeded (30 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+# ============================================================
+# 2. SALES ANALYTICS
+# ============================================================
+salesAnalytics:
+  get:
+    operationId: getSalesAnalytics
+    security:
+      - bearerAuth: []
+    tags:
+      - admin
+
+    summary: Get sales and revenue analytics
+
+    description: |
+      Retrieves aggregated sales metrics for non-cancelled orders grouped by day, week, or month.
+
+      Optional query parameters allow filtering by date range (`startDate` and `endDate`)
+      and selecting the aggregation period (`groupBy`):
+      - `day`: Groups data daily (YYYY-MM-DD) [default]
+      - `week`: Groups data weekly (YYYY-Www)
+      - `month`: Groups data monthly (YYYY-MM)
+
+      For each time bucket, the response returns:
+      - `totalRevenue`: Sum of total prices
+      - `avgRevenue`: Average order value
+      - `totalOrders`: Count of orders
+      - `totalItems`: Total quantity of books purchased
+
+      Rate limit: 30 requests per minute.
+
+    parameters:
+      - name: startDate
+        in: query
+        required: false
+        description: Earliest order creation date to include (inclusive).
+        schema:
+          type: string
+          format: date
+        example: "2026-01-01"
+
+      - name: endDate
+        in: query
+        required: false
+        description: Latest order creation date to include (inclusive).
+        schema:
+          type: string
+          format: date
+        example: "2026-10-01"
+
+      - name: groupBy
+        in: query
+        required: false
+        description: Time-series bucket granularity.
+        schema:
+          type: string
+          enum:
+            - day
+            - week
+            - month
+          default: day
+        example: "day"
+
+    responses:
+      "200":
+        description: Sales analytics retrieved successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/SalesAnalyticsResponse"
+            example:
+              status: "success"
+              data:
+                - _id: "2026-10-01"
+                  totalRevenue: 4500
+                  avgRevenue: 450
+                  totalOrders: 10
+                  totalItems: 18
+                - _id: "2026-09-30"
+                  totalRevenue: 3200
+                  avgRevenue: 400
+                  totalOrders: 8
+                  totalItems: 12
+
+      "401":
+        description: Authentication token missing or invalid.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user does not have administrator privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not allowed to perform this action"
+
+      "429":
+        description: Rate limit exceeded (30 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+# ============================================================
+# 3. BOOK ANALYTICS
+# ============================================================
+bookAnalytics:
+  get:
+    operationId: getBookAnalytics
+    security:
+      - bearerAuth: []
+    tags:
+      - admin
+
+    summary: Get book catalog, sales, and review analytics
+
+    description: |
+      Returns three comprehensive analytical datasets across the bookstore:
+
+      1. `booksAnalytic`: Total books, active books, inactive/deleted books, out-of-stock books, and low-stock books (< 100 units).
+      2. `bookSaleAnalytics`: Top 10 best-selling books and top 10 low-selling books based on quantity sold in paid orders.
+      3. `bookReviewAnalytics`: Top 10 most-rated books and top 10 highest-rated books (by average rating).
+
+    responses:
+      "200":
+        description: Book catalog analytics retrieved successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/BookAnalyticsResponse"
+            example:
+              stauts: "success"
+              data:
+                booksAnalytic:
+                  - total: 150
+                    totalActiveBooks: 142
+                    totalInactiveBooks: 8
+                    outOfStockBooks: 4
+                    lowStockBooks: 19
+                bookSaleAnalytics:
+                  - bestSellingBooks:
+                      - _id: "664b1f89e21b8c12a8901234"
+                        totalSold: 120
+                        totalOrders: 65
+                        book:
+                          - _id: "664b1f89e21b8c12a8901234"
+                            title: "Clean Code"
+                            price: 450
+                            category: "Action"
+                    lowSellingBooks:
+                      - _id: "664b1f89e21b8c12a8909876"
+                        totalSold: 1
+                        totalOrders: 1
+                        book:
+                          - _id: "664b1f89e21b8c12a8909876"
+                            title: "Cobol Programming in Depth"
+                            price: 320
+                            category: "Biography"
+                bookReviewAnalytics:
+                  - mostRatedBook:
+                      - bookId: "664b1f89e21b8c12a8901234"
+                        totalRating: 250
+                        reviewCount: 55
+                        avgRating: 4.55
+                    highestRatedBook:
+                      - bookId: "664b1f89e21b8c12a8905555"
+                        totalRating: 98
+                        reviewCount: 20
+                        avgRating: 4.90
+
+      "401":
+        description: Authentication token missing or invalid.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user does not have administrator privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not allowed to perform this action"
+
+# ============================================================
+# 4. DEAD MOVING STOCKS
+# ============================================================
+deadMovingStocks:
+  get:
+    operationId: getDeadMovingStocks
+    security:
+      - bearerAuth: []
+    tags:
+      - admin
+
+    summary: Get books with zero sales in the last 30 days
+
+    description: |
+      Identifies stagnant inventory ("dead stock") books that have generated zero sales
+      in paid orders over the past 30 days.
+
+      Returns paginated book items with title, author, current stock, price, and `totalSold: 0`.
+
+    parameters:
+      - name: page
+        in: query
+        required: false
+        description: Page number for pagination.
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+        example: 1
+
+      - name: limit
+        in: query
+        required: false
+        description: Number of books per page.
+        schema:
+          type: integer
+          default: 2
+          minimum: 1
+        example: 10
+
+    responses:
+      "200":
+        description: Dead stock inventory retrieved successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/DeadStockResponse"
+            example:
+              status: "success"
+              pagination:
+                totalItems: 8
+                totalPages: 4
+                currentPage: 1
+                hasNextPage: true
+              data:
+                - _id: "664b1f89e21b8c12a8901234"
+                  title: "Legacy Fortran Architecture"
+                  stock: 35
+                  author: "Walter Smith"
+                  price: 45
+                  totalSold: 0
+                - _id: "664b1f89e21b8c12a8905678"
+                  title: "Ancient Assembly Language"
+                  stock: 12
+                  author: "Alan Turing"
+                  price: 60
+                  totalSold: 0
+
+      "401":
+        description: Authentication token missing or invalid.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user does not have administrator privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not allowed to perform this action"
+
+# ============================================================
+# 5. BOOK PERFORMANCE
+# ============================================================
+bookPerformance:
+  get:
+    operationId: getBookPerformance
+    security:
+      - bearerAuth: []
+    tags:
+      - admin
+
+    summary: Get comprehensive performance metrics for all books
+
+    description: |
+      Retrieves a paginated list of all books enriched with multi-dimensional performance data:
+      - `orderAnalytics`: Total units sold and total revenue from paid orders.
+      - `wishlistAnalytics`: Total times the book was wishlisted.
+      - `bookRating`: Average customer review rating.
+
+    parameters:
+      - name: page
+        in: query
+        required: false
+        description: Page number for pagination.
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+        example: 1
+
+      - name: limit
+        in: query
+        required: false
+        description: Number of books per page.
+        schema:
+          type: integer
+          default: 10
+          minimum: 1
+        example: 10
+
+    responses:
+      "200":
+        description: Book performance metrics retrieved successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/BookPerformanceResponse"
+            example:
+              status: "success"
+              pagination:
+                totalItems: 50
+                totalPage: 5
+                currentPage: 1
+                hasNextPage: true
+              data:
+                - _id: "664b1f89e21b8c12a8901234"
+                  title: "Clean Code"
+                  author: "Robert C. Martin"
+                  price: 450
+                  stock: 25
+                  category: "Action"
+                  orderAnalytics:
+                    - totalSold: 15
+                      totalRevenue: 6750
+                  wishlistAnalytics:
+                    - totalWishlistCount: 8
+                  bookRating:
+                    - averageRating: 4.5
+
+      "401":
+        description: Authentication token missing or invalid.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user does not have administrator privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not allowed to perform this action"
+
+# ============================================================
+# 6. BOOK CATEGORY REVENUE
+# ============================================================
+bookCategoryRevenue:
+  get:
+    operationId: getBookCategoryRevenue
+    security:
+      - bearerAuth: []
+    tags:
+      - admin
+
+    summary: Get sales quantity and revenue distribution by book category
+
+    description: |
+      Calculates total units sold (`getSales`) and cumulative revenue (`getRevenue`) across all paid orders,
+      mapped across standard bookstore categories:
+      Fantasy, Action, Adventure, Mystery, Horror, Thriller, Romance, Self-help, and Biography.
+
+      Categories without any sales return 0 for both fields.
+
+    responses:
+      "200":
+        description: Category sales and revenue retrieved successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/CategoryRevenueResponse"
+            example:
+              status: "success"
+              data:
+                - category: "Fantasy"
+                  getSales: 120
+                  getRevenue: 48000
+                - category: "Action"
+                  getSales: 85
+                  getRevenue: 34000
+                - category: "Adventure"
+                  getSales: 60
+                  getRevenue: 24000
+                - category: "Mystery"
+                  getSales: 45
+                  getRevenue: 18000
+                - category: "Horror"
+                  getSales: 20
+                  getRevenue: 8000
+                - category: "Thriller"
+                  getSales: 55
+                  getRevenue: 22000
+                - category: "Romance"
+                  getSales: 90
+                  getRevenue: 36000
+                - category: "Self-help"
+                  getSales: 110
+                  getRevenue: 44000
+                - category: "Biography"
+                  getSales: 30
+                  getRevenue: 12000
+
+      "401":
+        description: Authentication token missing or invalid.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user does not have administrator privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not allowed to perform this action"
+
+# ============================================================
+# 7. CATEGORY SALES TREND
+# ============================================================
+categorySalesTrend:
+  get:
+    operationId: getCategorySalesTrend
+    security:
+      - bearerAuth: []
+    tags:
+      - admin
+
+    summary: Get month-by-month sales trends per category
+
+    description: |
+      Computes monthly sales quantities and revenue per category within a specified date range.
+
+      Validations enforced:
+      - `startDate` and `endDate` are required valid date strings.
+      - `endDate` must be strictly after `startDate`.
+      - The date range between `startDate` and `endDate` cannot exceed 1 year.
+
+      Missing calendar months in the range are automatically densified with zero values.
+
+    parameters:
+      - name: startDate
+        in: query
+        required: true
+        description: Start date in YYYY-MM-DD format.
+        schema:
+          type: string
+          format: date
+        example: "2026-01-01"
+
+      - name: endDate
+        in: query
+        required: true
+        description: End date in YYYY-MM-DD format (must be within 1 year from startDate).
+        schema:
+          type: string
+          format: date
+        example: "2026-09-01"
+
+    responses:
+      "200":
+        description: Category sales trends retrieved successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/CategoryTrendResponse"
+            example:
+              status: "success"
+              data:
+                - year: "2026-01"
+                  category: "Fantasy"
+                  totalQuantity: 25
+                  totalRevenue: 12500
+                - year: "2026-02"
+                  category: "Action"
+                  totalQuantity: 18
+                  totalRevenue: 9000
+
+      "400":
+        description: Validation error in date parameters (e.g. missing dates, invalid format, end <= start, or range > 1 year).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingDates:
+                summary: Missing date parameters
+                value:
+                  status: "Error"
+                  message: "Please enter start and end date"
+              invalidRange:
+                summary: Range exceeds one year
+                value:
+                  status: "Error"
+                  message: "Date range cannot be more than 1 year"
+
+      "401":
+        description: Authentication token missing or invalid.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user does not have administrator privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not allowed to perform this action"
+
+# ============================================================
+# 8. BOOK RATING DISTRIBUTION
+# ============================================================
+bookRatingDistribution:
+  get:
+    operationId: getBookRatingDistribution
+    security:
+      - bearerAuth: []
+    tags:
+      - admin
+
+    summary: Get review rating distribution (1 to 5 stars) per book
+
+    description: |
+      Aggregates customer reviews grouped by book, displaying individual counts
+      for 5-star, 4-star, 3-star, 2-star, and 1-star ratings.
+
+      Results are paginated.
+
+    parameters:
+      - name: page
+        in: query
+        required: false
+        description: Page number for pagination.
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+        example: 1
+
+      - name: limit
+        in: query
+        required: false
+        description: Number of books per page.
+        schema:
+          type: integer
+          default: 10
+          minimum: 1
+        example: 10
+
+    responses:
+      "200":
+        description: Book rating distribution retrieved successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/BookRatingDistributionResponse"
+            example:
+              status: "success"
+              pagination:
+                totalItems: 45
+                totalPages: 5
+                currentPage: 1
+                hasNextPage: true
+              data:
+                - bookId: "664b1f89e21b8c12a8901234"
+                  fiveStarRating: 25
+                  fourStarRating: 12
+                  threeStarRating: 5
+                  twoStarRating: 2
+                  oneStarRating: 1
+
+      "401":
+        description: Authentication token missing or invalid.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user does not have administrator privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not allowed to perform this action"
+
+# ============================================================
+# 9. ORDER ANALYTICS
+# ============================================================
+orderAnalytics:
+  get:
+    operationId: getOrderAnalytics
+    security:
+      - bearerAuth: []
+    tags:
+      - admin
+
+    summary: Get order status counts and order cancellation analytics
+
+    description: |
+      Returns two high-level order metrics:
+      1. `orderStatusAnalytics`: Total count of orders grouped by order status (e.g. paid, pending, cancelled).
+      2. `orderCancellationAnalytics`: Total orders, number of cancelled orders, and calculated cancellation rate percentage.
+
+    responses:
+      "200":
+        description: Order analytics retrieved successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/OrderAnalyticsResponse"
+            example:
+              status: "success"
+              data:
+                orderStatusAnalytics:
+                  - orderStatus: "paid"
+                    totalOrders: 150
+                  - orderStatus: "pending"
+                    totalOrders: 20
+                  - orderStatus: "cancelled"
+                    totalOrders: 10
+                orderCancellationAnalytics:
+                  - totalOrders: 180
+                    cancelledOrders: 10
+                    cancellationRate: 5.56
+
+      "401":
+        description: Authentication token missing or invalid.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user does not have administrator privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not allowed to perform this action"
+
+# ============================================================
+# 10. ORDER GROWTH
+# ============================================================
+orderGrowth:
+  get:
+    operationId: getOrderGrowth
+    security:
+      - bearerAuth: []
+    tags:
+      - admin
+
+    summary: Get daily order growth over a date range (up to 90 days)
+
+    description: |
+      Provides day-by-day order counts between `startDate` and `endDate`.
+
+      Validations enforced:
+      - Both `startDate` and `endDate` are required.
+      - `startDate` cannot be later than `endDate`.
+      - The time difference between the dates cannot exceed 90 days.
+
+      Days without any order activity are automatically densified with a count of 0.
+
+    parameters:
+      - name: startDate
+        in: query
+        required: true
+        description: Start date (YYYY-MM-DD).
+        schema:
+          type: string
+          format: date
+        example: "2026-09-01"
+
+      - name: endDate
+        in: query
+        required: true
+        description: End date (YYYY-MM-DD, within 90 days of startDate).
+        schema:
+          type: string
+          format: date
+        example: "2026-09-30"
+
+    responses:
+      "200":
+        description: Daily order growth timeline retrieved successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/OrderGrowthResponse"
+            example:
+              status: "success"
+              data:
+                - date: "2026-09-01"
+                  totalOrders: 12
+                - date: "2026-09-02"
+                  totalOrders: 8
+                - date: "2026-09-03"
+                  totalOrders: 0
+
+      "400":
+        description: Validation error in date parameters (e.g. missing dates, start > end, or difference > 90 days).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingDates:
+                summary: Missing date parameters
+                value:
+                  status: "Error"
+                  message: "Please enter start and end date"
+              rangeExceeded:
+                summary: Range exceeds 90 days
+                value:
+                  status: "Error"
+                  message: "Difference of date should not be bigger than 90 days"
+
+      "401":
+        description: Authentication token missing or invalid.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user does not have administrator privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not allowed to perform this action"
+
+# ============================================================
+# 11. AVERAGE ORDER VALUE (AOV)
+# ============================================================
+averageOrderValue:
+  get:
+    operationId: getAverageOrderValue
+    security:
+      - bearerAuth: []
+    tags:
+      - admin
+
+    summary: Get monthly average order value (AOV) and revenue trends
+
+    description: |
+      Calculates the monthly average order value (`avgOrderValue`), count of completed paid orders (`completedOrders`),
+      and total revenue for paid orders within the specified date range.
+
+      Validations enforced:
+      - `startDate` and `endDate` are required.
+      - `endDate` must be strictly after `startDate`.
+      - Date range cannot exceed 1 year.
+
+      Months with zero orders return 0 for revenue and average order value.
+
+    parameters:
+      - name: startDate
+        in: query
+        required: true
+        description: Start date (YYYY-MM-DD).
+        schema:
+          type: string
+          format: date
+        example: "2026-01-01"
+
+      - name: endDate
+        in: query
+        required: true
+        description: End date (YYYY-MM-DD, within 1 year from startDate).
+        schema:
+          type: string
+          format: date
+        example: "2026-10-01"
+
+    responses:
+      "200":
+        description: Monthly average order value statistics retrieved successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/AverageOrderValueResponse"
+            example:
+              status: "success"
+              data:
+                - month: "2026-01"
+                  completedOrders: 45
+                  totalRevenue: 20250
+                  avgOrderValue: 450
+                - month: "2026-02"
+                  completedOrders: 50
+                  totalRevenue: 24000
+                  avgOrderValue: 480
+
+      "400":
+        description: Validation error in date parameters.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingDates:
+                summary: Missing date parameters
+                value:
+                  status: "Error"
+                  message: "please enter start and end date"
+              rangeExceeded:
+                summary: Range exceeds one year
+                value:
+                  status: "Error"
+                  message: "The date range cannot exceed one year"
+
+      "401":
+        description: Authentication token missing or invalid.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user does not have administrator privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not allowed to perform this action"
+
+# ============================================================
+# 12. CUSTOMER ANALYTICS
+# ============================================================
+customerAnalytics:
+  get:
+    operationId: getCustomerAnalytics
+    security:
+      - bearerAuth: []
+    tags:
+      - admin
+
+    summary: Get customer growth, top-spending customers, and returning customer rate
+
+    description: |
+      Provides in-depth customer engagement and retention statistics:
+      1. `userAnalytics`: Monthly count of newly registered users over the date range (densified with 0).
+      2. `topPayingCustomers`: Top 10 customers ranked by total money spent on completed paid orders.
+      3. `returningCustomers`: Total unique buyers, count of repeat customers (> 1 paid order), and returning customer rate percentage.
+
+      Validations enforced:
+      - `startDate` and `endDate` are required.
+      - `endDate` must be greater than or equal to `startDate`.
+      - Date range cannot exceed 1 year.
+
+    parameters:
+      - name: startDate
+        in: query
+        required: true
+        description: Start date (YYYY-MM-DD).
+        schema:
+          type: string
+          format: date
+        example: "2026-01-01"
+
+      - name: endDate
+        in: query
+        required: true
+        description: End date (YYYY-MM-DD, within 1 year from startDate).
+        schema:
+          type: string
+          format: date
+        example: "2026-10-01"
+
+    responses:
+      "200":
+        description: Customer analytics retrieved successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/CustomerAnalyticsResponse"
+            example:
+              status: "success"
+              data:
+                userAnalytics:
+                  - month: "2026-01"
+                    totalUsers: 15
+                  - month: "2026-02"
+                    totalUsers: 28
+                topPayingCustomers:
+                  - customerId: "664b1f89e21b8c12a8901234"
+                    totalOrders: 12
+                    totalMoneySpent: 5400
+                  - customerId: "664b1f89e21b8c12a8905678"
+                    totalOrders: 8
+                    totalMoneySpent: 4100
+                returningCustomers:
+                  - totalCustomers: 120
+                    returningCustomers: 35
+                    returningCustomersRate: 29.17
+
+      "400":
+        description: Validation error in date parameters.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingDates:
+                summary: Missing date parameters
+                value:
+                  status: "Error"
+                  message: "Start date and end date are required"
+              rangeExceeded:
+                summary: Range exceeds one year
+                value:
+                  status: "Error"
+                  message: "The date range cannot exceed one year"
+
+      "401":
+        description: Authentication token missing or invalid.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user does not have administrator privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not allowed to perform this action"
+
+# ============================================================
+# 13. PAYMENT ANALYTICS
+# ============================================================
+paymentAnalytics:
+  get:
+    operationId: getPaymentAnalytics
+    security:
+      - bearerAuth: []
+    tags:
+      - admin
+
+    summary: Get payment success/failure volumes, amounts, and conversion rates
+
+    description: |
+      Analyzes transaction history and financial performance across payment statuses:
+      - `paymentStatusAnalytics`: Volume counts and financial amounts partitioned into successful (`paid`), failed (`failed`), and refunded (`cancelled`) categories.
+      - `paymentStatusRate`: Total payment attempts, success rate percentage, and failure rate percentage rounded to two decimal places.
+
+    responses:
+      "200":
+        description: Payment analytics retrieved successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/PaymentAnalyticsResponse"
+            example:
+              status: "success"
+              data:
+                paymentStatusAnalytics:
+                  - successfullPayments: 180
+                    successfullAmounts: 81000
+                    failedPayments: 12
+                    failedAmounts: 5400
+                    refundedPayments: 5
+                    refundedAmounts: 2250
+                paymentStatusRate:
+                  - successfullPayments: 185
+                    failedPayments: 12
+                    totalPayments: 197
+                    successRate: 93.91
+                    failedRate: 6.09
+
+      "401":
+        description: Authentication token missing or invalid.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user does not have administrator privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not allowed to perform this action"
+
+# ============================================================
+# 14. DEACTIVATE USER
+# ============================================================
+deactivateUser:
+  get:
+    operationId: deactivateUser
+    security:
+      - bearerAuth: []
+    tags:
+      - admin
+
+    summary: Suspend / deactivate a user account
+
+    description: |
+      Deactivates a user account by setting `isActive: false`.
+
+      The target user is identified by the `userId` parameter.
+      The updated user record is returned without password credentials.
+
+      Rate limit: 30 requests per minute.
+
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        description: MongoDB ObjectId of the user to deactivate.
+        schema:
+          type: string
+        example: "683aa9c34ae6c56e60594eb2"
+
+    responses:
+      "200":
+        description: User account suspended successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/DeactivateUserResponse"
+            example:
+              status: "success"
+              message: "User is suspended"
+              data:
+                _id: "683aa9c34ae6c56e60594eb2"
+                name: "John Doe"
+                email: "johndoe@example.com"
+                isEmailVerified: true
+                role: "user"
+                dateOfBirth: "2000-01-15T00:00:00.000Z"
+                phoneNumber: 1234567890
+                gender: "male"
+                isActive: false
+                totalOrderes: 3
+                totalSpent: 1250
+                cart: []
+                faviourites: []
+                createdAt: "2025-05-31T07:03:31.815Z"
+                updatedAt: "2026-10-02T12:00:00.000Z"
+
+      "401":
+        description: Authentication token missing or invalid.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user does not have administrator privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not allowed to perform this action"
+
+      "404":
+        description: User ID not provided or user not found.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              userNotFound:
+                summary: User not found
+                value:
+                  status: "Error"
+                  message: "User not found"
+              idNotFound:
+                summary: User ID missing
+                value:
+                  status: "Error"
+                  message: "User id not found"
+
+      "429":
+        description: Rate limit exceeded (30 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"

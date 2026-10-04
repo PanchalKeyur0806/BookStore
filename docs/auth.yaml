@@ -203,7 +203,7 @@ login:
       content:
         application/json:
           schema:
-            $ref: "./schema.yaml#/LoginRequest"
+            $ref: "./schema.yaml#/components/schemas/LoginRequest"
 
           example:
             email: "hello-1@gmail.com"

@@ -28,6 +28,10 @@ tags:
       - Resending OTP
       - Forgot password
       - Reset password
+  - name: admin
+    description: |
+      Administrator endpoints for monitoring and managing
+      the bookstore application.
 
 paths:
   # ============================================================
@@ -51,6 +55,51 @@ paths:
 
   /auth/resetpassword/{token}:
     $ref: "./auth.yaml#/resetPassword"
+
+  # ====================================================
+  # ADMIN ROUTES
+  # ===================================================
+  /admin/dashboard:
+    $ref: "./admin.yaml#/dashboard"
+
+  /admin/getSalesAnalytics:
+    $ref: "./admin.yaml#/salesAnalytics"
+
+  /admin/book/analytics:
+    $ref: "./admin.yaml#/bookAnalytics"
+
+  /admin/book/deadstock:
+    $ref: "./admin.yaml#/deadMovingStocks"
+
+  /admin/book/performance:
+    $ref: "./admin.yaml#/bookPerformance"
+
+  /admin/book/category/revenue:
+    $ref: "./admin.yaml#/bookCategoryRevenue"
+
+  /admin/book/category/trend:
+    $ref: "./admin.yaml#/categorySalesTrend"
+
+  /admin/book/rating/distribution:
+    $ref: "./admin.yaml#/bookRatingDistribution"
+
+  /admin/order/analytics:
+    $ref: "./admin.yaml#/orderAnalytics"
+
+  /admin/order/order-growth:
+    $ref: "./admin.yaml#/orderGrowth"
+
+  /admin/order/avg-order-value:
+    $ref: "./admin.yaml#/averageOrderValue"
+
+  /admin/customer/analytics:
+    $ref: "./admin.yaml#/customerAnalytics"
+
+  /admin/payment/analytics:
+    $ref: "./admin.yaml#/paymentAnalytics"
+
+  /admin/deactivateUser/{userId}:
+    $ref: "./admin.yaml#/deactivateUser"
 
 # ==============================================================
 # COMPONENTS
@@ -124,3 +173,151 @@ components:
 
     ErrorResponse:
       $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+
+    # =================================================
+    # ADMIN SCHEMAS
+    # ================================================
+
+    AdminDashboardResponse:
+      $ref: "./schema.yaml#/components/schemas/AdminDashboardResponse"
+
+    AdminSalesData:
+      $ref: "./schema.yaml#/components/schemas/AdminSalesData"
+
+    RevenueStatistics:
+      $ref: "./schema.yaml#/components/schemas/RevenueStatistics"
+
+    CountStatistics:
+      $ref: "./schema.yaml#/components/schemas/CountStatistics"
+
+    SalesPeriodStatistics:
+      $ref: "./schema.yaml#/components/schemas/SalesPeriodStatistics"
+
+    DailySales:
+      $ref: "./schema.yaml#/components/schemas/DailySales"
+
+    TopBook:
+      $ref: "./schema.yaml#/components/schemas/TopBook"
+
+    AdminUserStats:
+      $ref: "./schema.yaml#/components/schemas/AdminUserStats"
+
+    UserRoleStatistics:
+      $ref: "./schema.yaml#/components/schemas/UserRoleStatistics"
+
+    AdminOrderStats:
+      $ref: "./schema.yaml#/components/schemas/AdminOrderStats"
+
+    OrderStatusStatistics:
+      $ref: "./schema.yaml#/components/schemas/OrderStatusStatistics"
+
+    LowInventoryBook:
+      $ref: "./schema.yaml#/components/schemas/LowInventoryBook"
+
+    PaginationMetadata:
+      $ref: "./schema.yaml#/components/schemas/PaginationMetadata"
+
+    SalesAnalyticsItem:
+      $ref: "./schema.yaml#/components/schemas/SalesAnalyticsItem"
+
+    SalesAnalyticsResponse:
+      $ref: "./schema.yaml#/components/schemas/SalesAnalyticsResponse"
+
+    BookInventoryOverview:
+      $ref: "./schema.yaml#/components/schemas/BookInventoryOverview"
+
+    BookSalesRankingItem:
+      $ref: "./schema.yaml#/components/schemas/BookSalesRankingItem"
+
+    BookReviewRankingItem:
+      $ref: "./schema.yaml#/components/schemas/BookReviewRankingItem"
+
+    BookAnalyticsData:
+      $ref: "./schema.yaml#/components/schemas/BookAnalyticsData"
+
+    BookAnalyticsResponse:
+      $ref: "./schema.yaml#/components/schemas/BookAnalyticsResponse"
+
+    DeadStockBook:
+      $ref: "./schema.yaml#/components/schemas/DeadStockBook"
+
+    DeadStockResponse:
+      $ref: "./schema.yaml#/components/schemas/DeadStockResponse"
+
+    BookPerformanceItem:
+      $ref: "./schema.yaml#/components/schemas/BookPerformanceItem"
+
+    BookPerformanceResponse:
+      $ref: "./schema.yaml#/components/schemas/BookPerformanceResponse"
+
+    CategoryRevenueItem:
+      $ref: "./schema.yaml#/components/schemas/CategoryRevenueItem"
+
+    CategoryRevenueResponse:
+      $ref: "./schema.yaml#/components/schemas/CategoryRevenueResponse"
+
+    CategoryTrendItem:
+      $ref: "./schema.yaml#/components/schemas/CategoryTrendItem"
+
+    CategoryTrendResponse:
+      $ref: "./schema.yaml#/components/schemas/CategoryTrendResponse"
+
+    BookRatingDistributionItem:
+      $ref: "./schema.yaml#/components/schemas/BookRatingDistributionItem"
+
+    BookRatingDistributionResponse:
+      $ref: "./schema.yaml#/components/schemas/BookRatingDistributionResponse"
+
+    OrderStatusCount:
+      $ref: "./schema.yaml#/components/schemas/OrderStatusCount"
+
+    OrderCancellationRate:
+      $ref: "./schema.yaml#/components/schemas/OrderCancellationRate"
+
+    OrderAnalyticsData:
+      $ref: "./schema.yaml#/components/schemas/OrderAnalyticsData"
+
+    OrderAnalyticsResponse:
+      $ref: "./schema.yaml#/components/schemas/OrderAnalyticsResponse"
+
+    DailyOrderGrowthItem:
+      $ref: "./schema.yaml#/components/schemas/DailyOrderGrowthItem"
+
+    OrderGrowthResponse:
+      $ref: "./schema.yaml#/components/schemas/OrderGrowthResponse"
+
+    MonthlyAvgOrderValueItem:
+      $ref: "./schema.yaml#/components/schemas/MonthlyAvgOrderValueItem"
+
+    AverageOrderValueResponse:
+      $ref: "./schema.yaml#/components/schemas/AverageOrderValueResponse"
+
+    MonthlyUserGrowthItem:
+      $ref: "./schema.yaml#/components/schemas/MonthlyUserGrowthItem"
+
+    TopPayingCustomerItem:
+      $ref: "./schema.yaml#/components/schemas/TopPayingCustomerItem"
+
+    ReturningCustomerRate:
+      $ref: "./schema.yaml#/components/schemas/ReturningCustomerRate"
+
+    CustomerAnalyticsData:
+      $ref: "./schema.yaml#/components/schemas/CustomerAnalyticsData"
+
+    CustomerAnalyticsResponse:
+      $ref: "./schema.yaml#/components/schemas/CustomerAnalyticsResponse"
+
+    PaymentStatusAmounts:
+      $ref: "./schema.yaml#/components/schemas/PaymentStatusAmounts"
+
+    PaymentStatusRates:
+      $ref: "./schema.yaml#/components/schemas/PaymentStatusRates"
+
+    PaymentAnalyticsData:
+      $ref: "./schema.yaml#/components/schemas/PaymentAnalyticsData"
+
+    PaymentAnalyticsResponse:
+      $ref: "./schema.yaml#/components/schemas/PaymentAnalyticsResponse"
+
+    DeactivateUserResponse:
+      $ref: "./schema.yaml#/components/schemas/DeactivateUserResponse"
