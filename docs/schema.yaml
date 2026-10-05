@@ -2661,6 +2661,164 @@ components:
         data:
           $ref: "#/components/schemas/User"
 
+    # =========================================================
+    # WISHLIST SCHEMAS
+    # =========================================================
+
+    WishlistBookItem:
+      type: object
+      description: Essential book details populated within a customer's saved wishlist item.
+      required:
+        - _id
+        - title
+        - author
+        - price
+      properties:
+        _id:
+          type: string
+          description: 24-character hexadecimal MongoDB ObjectId of the book.
+          example: "683aab454ae6c56e60594eb7"
+        title:
+          type: string
+          description: Title of the book.
+          example: "Clean Code"
+        author:
+          type: string
+          description: Author of the book.
+          example: "Robert C. Martin"
+        price:
+          type: number
+          format: double
+          description: Retail purchase price of the book.
+          example: 450
+        coverImage:
+          type: string
+          format: uri
+          description: Cloudinary image URL for the book cover.
+          example: "https://res.cloudinary.com/demo/image/upload/v1/clean-code.jpg"
+        category:
+          type: string
+          description: Genre category of the book.
+          example: "Action"
+        ratingAverage:
+          type: number
+          format: float
+          description: Average customer review rating.
+          example: 4.8
+        stock:
+          type: integer
+          description: Available inventory quantity currently in stock.
+          example: 15
+
+    WishlistItem:
+      type: object
+      description: Customer wishlist record containing populated book catalog details.
+      required:
+        - _id
+        - user
+        - book
+        - createdAt
+      properties:
+        _id:
+          type: string
+          description: Unique 24-character hexadecimal MongoDB ObjectId of the wishlist entry.
+          example: "683b5f104ae6c56e60594eee"
+        user:
+          type: string
+          description: 24-character hexadecimal MongoDB ObjectId of the customer who saved the item.
+          example: "683aa9c34ae6c56e60594eb2"
+        book:
+          $ref: "#/components/schemas/WishlistBookItem"
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp when the book was saved to the wishlist.
+          example: "2026-05-12T10:00:00.000Z"
+
+    WishlistRawItem:
+      type: object
+      description: Newly created wishlist record with raw book ObjectId reference.
+      required:
+        - _id
+        - user
+        - book
+        - createdAt
+      properties:
+        _id:
+          type: string
+          description: Unique 24-character hexadecimal MongoDB ObjectId of the wishlist item.
+          example: "683b5f104ae6c56e60594eee"
+        user:
+          type: string
+          description: 24-character hexadecimal MongoDB ObjectId of the customer.
+          example: "683aa9c34ae6c56e60594eb2"
+        book:
+          type: string
+          description: 24-character hexadecimal MongoDB ObjectId of the saved book.
+          example: "683aab454ae6c56e60594eb7"
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO 8601 creation timestamp.
+          example: "2026-05-12T10:00:00.000Z"
+
+    GetAllWishlistResponse:
+      type: object
+      description: Response payload containing all books currently saved in the customer's wishlist.
+      required:
+        - status
+        - message
+        - results
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        message:
+          type: string
+          example: "All wishlist items are successfully found"
+        results:
+          type: integer
+          description: Total count of saved books returned in the wishlist.
+          example: 2
+        data:
+          type: array
+          description: List of wishlist items populated with book catalog details.
+          items:
+            $ref: "#/components/schemas/WishlistItem"
+
+    AddToWishlistResponse:
+      type: object
+      description: Response payload confirming successful addition of a book to the wishlist.
+      required:
+        - status
+        - message
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        message:
+          type: string
+          example: "Book successfully added to wishlist"
+        data:
+          $ref: "#/components/schemas/WishlistRawItem"
+
+    RemoveFromWishlistResponse:
+      type: object
+      description: Response payload confirming successful removal of a book from the wishlist.
+      required:
+        - status
+        - message
+      properties:
+        status:
+          type: string
+          example: "success"
+        message:
+          type: string
+          example: "Book successfully removed from wishlist"
+
+
 
 
 

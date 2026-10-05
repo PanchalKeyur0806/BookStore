@@ -86,6 +86,16 @@ tags:
       - Administrator user catalog querying with multi-field regex filters and pagination (`/users/all`)
       - Administrator single user lookup by ID (`/users/{userId}`)
 
+  - name: wishlist
+    description: |
+      Customer book wishlist and saved items management endpoints.
+
+      Includes:
+      - Retrieving all saved books in customer's wishlist with populated book catalog details (`/wishlist`)
+      - Adding books to personal wishlist with real-time catalog existence and duplicate validation (`/wishlist/{bookId}`)
+      - Removing books from customer wishlist (`/wishlist/{bookId}`)
+
+
 
 
 paths:
@@ -232,6 +242,17 @@ paths:
 
   /users/{userId}:
     $ref: "./user.yaml#/userById"
+
+  # ============================================================
+  # WISHLIST ROUTES
+  # ============================================================
+
+  /wishlist:
+    $ref: "./wishlist.yaml#/wishlist"
+
+  /wishlist/{bookId}:
+    $ref: "./wishlist.yaml#/wishlistByBookId"
+
 
 
 
@@ -586,6 +607,29 @@ components:
 
     AddFavBookResponse:
       $ref: "./schema.yaml#/components/schemas/AddFavBookResponse"
+
+    # ============================================================
+    # WISHLIST SCHEMAS
+    # ============================================================
+
+    WishlistBookItem:
+      $ref: "./schema.yaml#/components/schemas/WishlistBookItem"
+
+    WishlistItem:
+      $ref: "./schema.yaml#/components/schemas/WishlistItem"
+
+    WishlistRawItem:
+      $ref: "./schema.yaml#/components/schemas/WishlistRawItem"
+
+    GetAllWishlistResponse:
+      $ref: "./schema.yaml#/components/schemas/GetAllWishlistResponse"
+
+    AddToWishlistResponse:
+      $ref: "./schema.yaml#/components/schemas/AddToWishlistResponse"
+
+    RemoveFromWishlistResponse:
+      $ref: "./schema.yaml#/components/schemas/RemoveFromWishlistResponse"
+
 
 
 

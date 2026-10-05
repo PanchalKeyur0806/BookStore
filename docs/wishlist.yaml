@@ -1,0 +1,546 @@
+# wishlist.yaml
+#
+# Customer book wishlist and saved items API routes for the BookStore REST API.
+#
+# This file contains Path Item Objects that can be referenced
+# individually from the root openapi.yaml file.
+#
+# Paths:
+#   /wishlist:
+#     $ref: "./wishlist.yaml#/wishlist"
+#   /wishlist/{bookId}:
+#     $ref: "./wishlist.yaml#/wishlistByBookId"
+
+# ============================================================
+# 1. /wishlist (GET)
+# ============================================================
+wishlist:
+  get:
+    operationId: getAllWishlist
+    security:
+      - bearerAuth: []
+    tags:
+      - wishlist
+
+    summary: Retrieve all books saved in the authenticated user's wishlist
+
+    description: |
+      Retrieves the complete list of books saved to the authenticated customer's wishlist,
+      with full catalog metadata populated for each book.
+
+      ### Authentication & Access Control
+      - **Required Authentication**: Bearer JWT token in the `Authorization` header (`protect` middleware).
+      - **Email Verification**: User account email address must be verified (`isEmailVerified: true`).
+
+      ### Catalog Data Population
+      - Queries the `Wishlist` collection matching `{ user: req.user._id }`.
+      - Automatically populates the referenced `book` with essential catalog attributes:
+        `title`, `author`, `price`, `coverImage`, `category`, `ratingAverage`, and current inventory `stock`.
+
+      ### Rate Limiting
+      - Protected by `getRateLimiter`: Maximum **30 requests per minute** per client IP.
+
+    responses:
+      "200":
+        description: Customer's wishlist items retrieved successfully with populated book details.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/GetAllWishlistResponse"
+            example:
+              status: "success"
+              message: "All wishlist items are successfully found"
+              results: 2
+              data:
+                - _id: "683b5f104ae6c56e60594eee"
+                  user: "683aa9c34ae6c56e60594eb2"
+                  book:
+                    _id: "683aab454ae6c56e60594eb7"
+                    title: "Clean Code"
+                    author: "Robert C. Martin"
+                    price: 450.00
+                    coverImage: "https://res.cloudinary.com/demo/image/upload/v1/clean-code.jpg"
+                    category: "Action"
+                    ratingAverage: 4.8
+                    stock: 15
+                  createdAt: "2026-05-12T10:00:00.000Z"
+                - _id: "683b5f104ae6c56e60594eef"
+                  user: "683aa9c34ae6c56e60594eb2"
+                  book:
+                    _id: "683aab454ae6c56e60594eb9"
+                    title: "Designing Data-Intensive Applications"
+                    author: "Martin Kleppmann"
+                    price: 750.00
+                    coverImage: "https://res.cloudinary.com/demo/image/upload/v1/ddia.jpg"
+                    category: "Action"
+                    ratingAverage: 4.9
+                    stock: 8
+                  createdAt: "2026-05-11T14:30:00.000Z"
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user email is not verified.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not verified, please verified first then try again"
+
+      "429":
+        description: Rate limit exceeded (30 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+# ============================================================
+# 2. /wishlist/{bookId} (POST, DELETE)
+# ============================================================
+wishlistByBookId:
+  parameters:
+    - name: bookId
+      in: path
+      required: true
+      description: |
+        The 24-character hexadecimal MongoDB ObjectId uniquely identifying the book.
+      schema:
+        type: string
+        pattern: "^[0-9a-fA-F]{24}$"
+      example: "683aab454ae6c56e60594eb7"
+
+  # ------------------------------------------------------------
+  # POST /wishlist/{bookId} - Add book to wishlist
+  # ------------------------------------------------------------
+  post:
+    operationId: addToWishlist
+    security:
+      - bearerAuth: []
+    tags:
+      - wishlist
+
+    summary: Add a book to the authenticated user's wishlist
+
+    description: |
+      Saves a designated book to the authenticated customer's personal wishlist for future purchase.
+
+      ### Authentication & Access Control
+      - **Required Authentication**: Bearer JWT token (`protect` middleware).
+      - **Email Verification**: User account email address must be verified (`isEmailVerified: true`).
+      - **Parameter Validation**: Middleware `validateId("bookId")` verifies that `bookId` is a syntactically
+        valid 24-character hexadecimal MongoDB ObjectId.
+
+      ### Verification & Business Rules
+      1. **Catalog Existence Verification**:
+         Queries MongoDB via `Books.findById(bookId)`. If the target book does not exist in the catalog,
+         the request fails immediately with HTTP `404 Not Found` (`"Book not found"`).
+      2. **Duplicate Prevention**:
+         Queries `Wishlist.findOne({ user: req.user._id, book: bookId })`. If the book already resides in
+         the customer's wishlist, the request is rejected with HTTP `400 Bad Request`
+         (`"Book is already in your wishlist"`).
+      3. **Database Uniqueness Constraint**:
+         The `Wishlist` schema enforces a compound unique index `{ user: 1, book: 1 }` guaranteeing
+         concurrency-safe deduplication.
+
+      ### Rate Limiting
+      - Protected by `mutationLimiter`: Maximum **10 mutation requests per minute** per client IP.
+
+    responses:
+      "201":
+        description: Book successfully saved to customer's wishlist.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/AddToWishlistResponse"
+            example:
+              status: "success"
+              message: "Book successfully added to wishlist"
+              data:
+                _id: "683b5f104ae6c56e60594eee"
+                user: "683aa9c34ae6c56e60594eb2"
+                book: "683aab454ae6c56e60594eb7"
+                createdAt: "2026-05-12T10:00:00.000Z"
+
+      "400":
+        description: Book already exists in user's wishlist or malformed ObjectId.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              alreadyInWishlist:
+                summary: Book already present in wishlist
+                value:
+                  status: "Error"
+                  message: "Book is already in your wishlist"
+              invalidIdSyntax:
+                summary: Malformed MongoDB ObjectId syntax
+                value:
+                  status: "Error"
+                  message: "Invalid Id, please enter correct id"
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user email is not verified.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not verified, please verified first then try again"
+
+      "404":
+        description: Book does not exist in catalog.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Book not found"
+
+      "429":
+        description: Rate limit exceeded (10 mutation requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+  # ------------------------------------------------------------
+  # DELETE /wishlist/{bookId} - Remove book from wishlist
+  # ------------------------------------------------------------
+  delete:
+    operationId: removeFromWishlist
+    security:
+      - bearerAuth: []
+    tags:
+      - wishlist
+
+    summary: Remove a book from the authenticated user's wishlist
+
+    description: |
+      Removes a designated book from the authenticated customer's wishlist.
+
+      ### Authentication & Access Control
+      - **Required Authentication**: Bearer JWT token (`protect` middleware).
+      - **Email Verification**: User account email address must be verified (`isEmailVerified: true`).
+      - **Parameter Validation**: Middleware `validateId("bookId")` verifies that `bookId` is a syntactically
+        valid 24-character hexadecimal MongoDB ObjectId.
+
+      ### Operational Logic
+      1. Executes `Wishlist.findOneAndDelete({ user: req.user._id, book: bookId })`.
+      2. If no matching wishlist entry is found for this customer and book, the server responds with
+         HTTP `404 Not Found` (`"Book is not in your wishlist"`).
+      3. Upon successful removal, responds with HTTP `200 OK`.
+
+      ### Rate Limiting
+      - Protected by `generalRateLimiter`: Maximum **15 requests per minute** per client IP.
+
+    responses:
+      "200":
+        description: Book successfully removed from customer's wishlist.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/RemoveFromWishlistResponse"
+            example:
+              status: "success"
+              message: "Book successfully removed from wishlist"
+
+      "400":
+        description: Malformed MongoDB ObjectId syntax in path parameter.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Invalid Id, please enter correct id"
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user email is not verified.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not verified, please verified first then try again"
+
+      "404":
+        description: Book was not found in the customer's wishlist.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Book is not in your wishlist"
+
+      "429":
+        description: Rate limit exceeded (15 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+# ============================================================
+# ALIASES FOR INDIVIDUAL ROUTE REFERENCING
+# ============================================================
+getAllWishlist:
+  get:
+    operationId: getAllWishlistAlias
+    security:
+      - bearerAuth: []
+    tags:
+      - wishlist
+    summary: Retrieve all books saved in user's wishlist
+    description: Retrieves all saved wishlist items for the authenticated user.
+    responses:
+      "200":
+        description: Wishlist retrieved successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/GetAllWishlistResponse"
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+      "403":
+        description: Authenticated user email is not verified.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+      "429":
+        description: Rate limit exceeded.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+      "500":
+        description: Internal server error.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+
+addToWishlist:
+  parameters:
+    - name: bookId
+      in: path
+      required: true
+      description: 24-character hexadecimal MongoDB ObjectId of the book.
+      schema:
+        type: string
+        pattern: "^[0-9a-fA-F]{24}$"
+      example: "683aab454ae6c56e60594eb7"
+  post:
+    operationId: addToWishlistAlias
+    security:
+      - bearerAuth: []
+    tags:
+      - wishlist
+    summary: Add a book to user's wishlist
+    description: Saves a designated book to customer's personal wishlist.
+    responses:
+      "201":
+        description: Book successfully added to wishlist.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/AddToWishlistResponse"
+      "400":
+        description: Book already in wishlist or invalid ID syntax.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+      "403":
+        description: Authenticated user email is not verified.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+      "404":
+        description: Book not found in catalog.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+      "429":
+        description: Rate limit exceeded.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+      "500":
+        description: Internal server error.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+
+removeFromWishlist:
+  parameters:
+    - name: bookId
+      in: path
+      required: true
+      description: 24-character hexadecimal MongoDB ObjectId of the book.
+      schema:
+        type: string
+        pattern: "^[0-9a-fA-F]{24}$"
+      example: "683aab454ae6c56e60594eb7"
+  delete:
+    operationId: removeFromWishlistAlias
+    security:
+      - bearerAuth: []
+    tags:
+      - wishlist
+    summary: Remove a book from user's wishlist
+    description: Removes a designated book from customer's personal wishlist.
+    responses:
+      "200":
+        description: Book successfully removed from wishlist.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/RemoveFromWishlistResponse"
+      "400":
+        description: Invalid ID syntax.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+      "403":
+        description: Authenticated user email is not verified.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+      "404":
+        description: Book not found in customer's wishlist.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+      "429":
+        description: Rate limit exceeded.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+      "500":
+        description: Internal server error.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
