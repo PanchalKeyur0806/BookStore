@@ -51,6 +51,9 @@ tags:
       - Retrieving active user shopping cart with Redis caching
       - Adding books to cart with real-time inventory validation and dynamic pricing recalculation
       - Removing items from cart with automatic price and quantity reconciliation
+  - name: orders
+    description: |
+      Order management
 
 paths:
   # ============================================================
@@ -143,6 +146,25 @@ paths:
   /cart/remove/{bookId}:
     $ref: "./cart.yaml#/removeBookFromCart"
 
+  # ============================================================
+  # ORDER ROUTES
+  # ============================================================
+
+  /orders/checkout-session:
+    $ref: "./order.yaml#/checkoutSession"
+  
+  /orders/refundPayment/{stripePaymentId}:
+    $ref: "./order.yaml#/refundPayments"
+
+  /orders/all:
+    $ref: "./order.yaml#/getAllOrders"
+
+  /orders/order/{orderId}:
+    $ref: "./order.yaml#/getOneOrder"
+
+  /orders/success:
+    $ref: "./order.yaml#/success"
+
 # ==============================================================
 # COMPONENTS
 # ==============================================================
@@ -164,7 +186,7 @@ components:
 
         Send the token using the Authorization header:
 
-        Authorization: Bearer <JWT_TOKEN>
+        `Authorization: Bearer <JWT_TOKEN>`
 
   # ============================================================
   # SCHEMAS

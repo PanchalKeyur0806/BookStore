@@ -1,0 +1,320 @@
+
+
+
+checkoutSession:
+  post:
+    operationId: checkoutsession
+    security:
+      - bearerAuth: []
+    tags:
+      - orders
+
+    summary: Create a checkout session for the authenticated user's cart
+
+    description: |
+      Creates a Stripe checkout session for the authenticated customer's shopping cart.
+
+      This endpoint requires authentication and is restricted to customers with
+      `role: 'user'`. The user's email address must be verified.
+
+      The checkout session is created using the Stripe SDK and includes the items in the user's cart.
+
+    responses:
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user is unverified or lacks customer privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              nonUserRole:
+                summary: User does not hold customer role (role != 'user')
+                value:
+                  status: "Error"
+                  message: "you are not allowed to perform this action"
+
+              unverifiedAccount:
+                summary: User account email is not verified
+                value:
+                  status: "Error"
+                  message: "you are not verified, please verified first then try again"
+
+      "429":
+        description: Rate limit exceeded (30 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error or Stripe connection failure.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+refundPayments:
+  get:
+    operationId: refundPayments
+    security:
+      - bearerAuth: []
+    tags:
+      - orders
+
+    summary: Refund payments for a specific order
+
+    description: |
+      Refunds payments for a specific order.
+
+      This endpoint requires authentication and is restricted to customers with
+      `role: 'user'`. The user's email address must be verified.
+
+      The refund is processed using the Stripe SDK and includes the items in the user's cart.
+
+    responses:
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user is unverified or lacks customer privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              nonUserRole:
+                summary: User does not hold customer role (role != 'user')
+                value:
+                  status: "Error"
+                  message: "you are not allowed to perform this action"
+
+              unverifiedAccount:
+                summary: User account email is not verified
+                value:
+                  status: "Error"
+                  message: "you are not verified, please verified first then try again"
+
+      "429":
+        description: Rate limit exceeded (30 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error or Stripe connection failure.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+getAllOrders:
+  get:
+    operationId: getAllOrders
+    security:
+      - bearerAuth: []
+    tags:
+      - orders
+
+    summary: Get all orders
+
+    description: |
+      Retrieves all orders.
+
+      This endpoint requires authentication and is restricted to customers with
+      `role: 'user'`. The user's email address must be verified.
+
+      The orders are retrieved from the MongoDB database and include the items in the user's cart.
+
+    responses:
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user is unverified or lacks customer privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              nonUserRole:
+                summary: User does not hold customer role (role != 'user')
+                value:
+                  status: "Error"
+                  message: "you are not allowed to perform this action"
+
+              unverifiedAccount:
+                summary: User account email is not verified
+                value:
+                  status: "Error"
+                  message: "you are not verified, please verified first then try again"
+
+      "429":
+        description: Rate limit exceeded (30 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error or Stripe connection failure.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+
+getOneOrder:
+  get:
+    operationId: getOneOrder
+    security: 
+      - bearerAuth: []
+    tags:
+      - orders
+    summary: Get one order
+    description: |
+      Retrieves one order.
+
+      This endpoint requires authentication and is restricted to customers with
+      `role: 'user'`. The user's email address must be verified.
+
+      The order is retrieved from the MongoDB database and include the items in the user's cart.
+    responses:
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+      "403":
+        description: Authenticated user is unverified or lacks customer privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              nonUserRole:
+                summary: User does not hold customer role (role != 'user')
+                value:
+                  status: "Error"
+                  message: "you are not allowed to perform this action"
+              unverifiedAccount:
+                summary: User account email is not verified
+                value:
+                  status: "Error"
+                  message: "you are not verified, please verified first then try again"
+      "429":
+        description: Rate limit exceeded (30 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+      "500":
+        description: Internal server error or Stripe connection failure.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+
+
+success:
+  get:
+    operationId: success
+    tags:
+      - orders
+    summary: Success page
+    description: |
+      Retrieves success page.
+    responses:
+      "300":
+        description: Redirect to / route
