@@ -79,6 +79,7 @@ checkoutSession:
               status: "Error"
               message: "Internal Server Error"
 
+# for refunding the payment
 refundPayments:
   get:
     operationId: refundPayments
@@ -157,6 +158,7 @@ refundPayments:
               status: "Error"
               message: "Internal Server Error"
 
+# Get all orders
 getAllOrders:
   get:
     operationId: getAllOrders
@@ -236,6 +238,7 @@ getAllOrders:
               message: "Internal Server Error"
 
 
+# Order Route for retrive only one Order
 getOneOrder:
   get:
     operationId: getOneOrder
@@ -252,6 +255,26 @@ getOneOrder:
 
       The order is retrieved from the MongoDB database and include the items in the user's cart.
     responses:
+      "400":
+        description: Invalid Order ID or missing parameter.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              invalidIdSyntax:
+                summary: Malformed MongoDB ObjectId
+                value:
+                  status: "Error"
+                  message: "Invalid Id, please enter correct id"
+
+              missingOrderid:
+                summary: Missing Order id parameter
+                value:
+                  status: "Error"
+                  message: "please provide order id to get the order"
+
+
       "401":
         description: Missing or invalid JWT authentication token.
         content:
@@ -306,7 +329,7 @@ getOneOrder:
               message: "Internal Server Error"
 
 
-
+# success route for order
 success:
   get:
     operationId: success
