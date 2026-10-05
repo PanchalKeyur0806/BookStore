@@ -2516,6 +2516,152 @@ components:
         data:
           $ref: "#/components/schemas/Order"
 
+    # =========================================================
+    # USER MANAGEMENT SCHEMAS
+    # =========================================================
+
+    GetAllUsersResponse:
+      type: object
+      description: Paginated API response returning a list of registered users for administrators.
+      required:
+        - status
+        - length
+        - pagination
+        - message
+        - allUser
+      properties:
+        status:
+          type: string
+          example: "success"
+        length:
+          type: integer
+          description: Total number of user records returned in the current page.
+          example: 10
+        pagination:
+          $ref: "#/components/schemas/PaginationMetadata"
+        message:
+          type: string
+          description: Operational message indicating whether users were found.
+          example: "all users found successfully"
+        allUser:
+          type: array
+          description: Array of active user account records matching filter criteria.
+          items:
+            $ref: "#/components/schemas/User"
+
+    GetUserProfileResponse:
+      type: object
+      description: Standard API response returning complete profile details for a user.
+      required:
+        - status
+        - message
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        message:
+          type: string
+          example: "user found successfully"
+        data:
+          $ref: "#/components/schemas/User"
+
+    GetUserOrdersResponse:
+      type: object
+      description: List of historical orders placed by the authenticated customer.
+      required:
+        - status
+        - length
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        length:
+          type: integer
+          description: Total count of past orders placed by the customer.
+          example: 3
+        data:
+          type: array
+          description: Collection of order documents associated with the user account.
+          items:
+            $ref: "#/components/schemas/Order"
+
+    UpdateUserRequest:
+      type: object
+      description: |
+        Request payload containing personal profile attributes to update.
+        All fields are optional; only provided fields will be modified.
+      properties:
+        name:
+          type: string
+          minLength: 2
+          description: Updated full name of the user.
+          example: "Keyur Panchal"
+        phoneNumber:
+          type: integer
+          description: Updated 10-digit primary telephone contact number.
+          example: 9876543210
+        gender:
+          type: string
+          enum:
+            - male
+            - female
+            - others
+          description: Updated gender identity.
+          example: "male"
+        dateOfBirth:
+          type: string
+          format: date
+          description: Updated date of birth (YYYY-MM-DD).
+          example: "2005-06-08"
+        address:
+          $ref: "#/components/schemas/Address"
+
+    UpdateUserResponse:
+      type: object
+      description: Response payload returned after modifying user profile details.
+      required:
+        - status
+        - message
+      properties:
+        status:
+          type: string
+          example: "success"
+        message:
+          type: string
+          example: "user updated successfully"
+
+    AddFavBookRequest:
+      type: object
+      description: Request payload specifying the book to append to customer favourites.
+      required:
+        - bookId
+      properties:
+        bookId:
+          type: string
+          pattern: "^[0-9a-fA-F]{24}$"
+          description: 24-character hexadecimal MongoDB ObjectId of the book to add to favourites.
+          example: "683aab454ae6c56e60594eb7"
+
+    AddFavBookResponse:
+      type: object
+      description: Response returned upon successfully appending a book to customer favourites.
+      required:
+        - status
+        - message
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        message:
+          type: string
+          example: "Book added to favourites"
+        data:
+          $ref: "#/components/schemas/User"
+
+
 
 
 

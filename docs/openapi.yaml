@@ -74,6 +74,19 @@ tags:
       - Administrator catalog-wide review monitoring, searching, and pagination
       - High-performance personal review retrieval with Redis cache-aside caching
 
+  - name: users
+    description: |
+      User account management, profile settings, order history, and favourites collection.
+
+      Includes:
+      - Retrieving authenticated customer profile (`/users/me`)
+      - Updating user account information and delivery address (`/users/updateMe`)
+      - Retrieving past order history (`/users/orders`)
+      - Managing book favourites and wishlist items (`/users/favBooks`)
+      - Administrator user catalog querying with multi-field regex filters and pagination (`/users/all`)
+      - Administrator single user lookup by ID (`/users/{userId}`)
+
+
 
 paths:
   # ============================================================
@@ -197,6 +210,29 @@ paths:
 
   /reviews/{bookId}/me:
     $ref: "./review.yaml#/getMyReview"
+
+  # ============================================================
+  # USER ROUTES
+  # ============================================================
+
+  /users/me:
+    $ref: "./user.yaml#/me"
+
+  /users/updateMe:
+    $ref: "./user.yaml#/updateMe"
+
+  /users/orders:
+    $ref: "./user.yaml#/userOrders"
+
+  /users/favBooks:
+    $ref: "./user.yaml#/favBooks"
+
+  /users/all:
+    $ref: "./user.yaml#/allUsers"
+
+  /users/{userId}:
+    $ref: "./user.yaml#/userById"
+
 
 
 # ==============================================================
@@ -525,5 +561,31 @@ components:
 
     GetOneOrderResponse:
       $ref: "./schema.yaml#/components/schemas/GetOneOrderResponse"
+
+    # ============================================================
+    # USER SCHEMAS
+    # ============================================================
+
+    GetAllUsersResponse:
+      $ref: "./schema.yaml#/components/schemas/GetAllUsersResponse"
+
+    GetUserProfileResponse:
+      $ref: "./schema.yaml#/components/schemas/GetUserProfileResponse"
+
+    GetUserOrdersResponse:
+      $ref: "./schema.yaml#/components/schemas/GetUserOrdersResponse"
+
+    UpdateUserRequest:
+      $ref: "./schema.yaml#/components/schemas/UpdateUserRequest"
+
+    UpdateUserResponse:
+      $ref: "./schema.yaml#/components/schemas/UpdateUserResponse"
+
+    AddFavBookRequest:
+      $ref: "./schema.yaml#/components/schemas/AddFavBookRequest"
+
+    AddFavBookResponse:
+      $ref: "./schema.yaml#/components/schemas/AddFavBookResponse"
+
 
 

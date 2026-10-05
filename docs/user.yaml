@@ -1,0 +1,895 @@
+# user.yaml
+#
+# User account management, customer profile operations, order history,
+# and favourites API routes for the BookStore REST API.
+#
+# This file contains Path Item Objects that can be referenced
+# individually from the root openapi.yaml file.
+#
+# Paths:
+#   /users/me:
+#     $ref: "./user.yaml#/me"
+#   /users/updateMe:
+#     $ref: "./user.yaml#/updateMe"
+#   /users/orders:
+#     $ref: "./user.yaml#/userOrders"
+#   /users/favBooks:
+#     $ref: "./user.yaml#/favBooks"
+#   /users/all:
+#     $ref: "./user.yaml#/allUsers"
+#   /users/{userId}:
+#     $ref: "./user.yaml#/userById"
+
+# ============================================================
+# 1. /users/me (GET)
+# ============================================================
+me:
+  get:
+    operationId: getCurrentUser
+    security:
+      - bearerAuth: []
+    tags:
+      - users
+
+    summary: Retrieve the authenticated user's profile
+
+    description: |
+      Retrieves the complete profile and personal information of the currently authenticated user.
+
+      ### Authentication & Access Control
+      - **Required Authentication**: Bearer JWT token in the `Authorization` header (`protect` middleware).
+      - **Email Verification**: User account email address must be verified (`isEmailVerified: true`).
+
+      ### Account Status & Soft-Deactivation Filter
+      - Database queries run through a Mongoose `pre(/^find/)` middleware that automatically excludes
+        deactivated accounts (`{ isActive: { $ne: false } }`).
+      - If the account has been deactivated by an administrator, the request aborts with HTTP `404 Not Found`
+        (`"user does not exists"`).
+
+      ### Rate Limiting
+      - Protected by `getRateLimiter`: Maximum **30 requests per minute** per client IP.
+
+    responses:
+      "200":
+        description: Customer profile details successfully retrieved.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/GetUserProfileResponse"
+            example:
+              status: "success"
+              message: "user found successfully"
+              data:
+                _id: "683aa9c34ae6c56e60594eb2"
+                name: "Keyur Panchal"
+                email: "keyur.panchal@example.com"
+                isEmailVerified: true
+                role: "user"
+                dateOfBirth: "2005-06-08T00:00:00.000Z"
+                phoneNumber: 9876543210
+                gender: "male"
+                address:
+                  line: "Near Metro Station"
+                  street: "123 Tech Park Road"
+                  city: "Ahmedabad"
+                  state: "Gujarat"
+                  zipCode: 382418
+                  country: "India"
+                isActive: true
+                totalOrderes: 2
+                totalSpent: 1250.00
+                faviourites:
+                  - "683aab454ae6c56e60594eb7"
+                  - "683aab454ae6c56e60594eb8"
+                createdAt: "2025-05-31T07:03:31.815Z"
+                updatedAt: "2026-05-12T10:00:00.000Z"
+
+      "400":
+        description: User session missing or unauthenticated.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "your are not logged in please login to get access"
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: User account email is not verified.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not verified, please verified first then try again"
+
+      "404":
+        description: User account does not exist or has been deactivated.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "user does not exists"
+
+      "429":
+        description: Rate limit exceeded (30 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+# ============================================================
+# 2. /users/updateMe (PATCH)
+# ============================================================
+updateMe:
+  patch:
+    operationId: updateMe
+    security:
+      - bearerAuth: []
+    tags:
+      - users
+
+    summary: Update the authenticated user's profile information
+
+    description: |
+      Updates personal profile information, contact number, gender, date of birth,
+      or physical shipping address for the currently authenticated user.
+
+      ### Authentication & Access Control
+      - **Required Authentication**: Bearer JWT token (`protect` middleware).
+      - **Email Verification**: User account email address must be verified (`isEmailVerified: true`).
+
+      ### Operational Behavior
+      - Executes `User.findByIdAndUpdate(req.user.id, req.body)` to modify permitted account fields.
+      - If the update operation cannot be fulfilled, the server returns HTTP `400 Bad Request`
+        (`"user is not updated"`).
+      - Upon successful modification, the endpoint responds with HTTP `201 Created`.
+
+      ### Rate Limiting
+      - Protected by `mutationLimiter`: Maximum **10 mutation requests per minute** per client IP.
+
+    requestBody:
+      required: true
+      description: Personal profile attributes and delivery address fields to modify.
+      content:
+        application/json:
+          schema:
+            $ref: "./schema.yaml#/components/schemas/UpdateUserRequest"
+          example:
+            name: "Keyur Panchal"
+            phoneNumber: 9876543210
+            gender: "male"
+            dateOfBirth: "2005-06-08"
+            address:
+              line: "Near Metro Station"
+              street: "123 Tech Park Road"
+              city: "Ahmedabad"
+              state: "Gujarat"
+              zipCode: 382418
+              country: "India"
+
+    responses:
+      "201":
+        description: User profile attributes successfully updated.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/UpdateUserResponse"
+            example:
+              status: "success"
+              message: "user updated successfully"
+
+      "400":
+        description: Update failed or invalid input provided.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "user is not updated"
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: User account email is not verified.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not verified, please verified first then try again"
+
+      "429":
+        description: Rate limit exceeded (10 mutation requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+# ============================================================
+# 3. /users/orders (GET)
+# ============================================================
+userOrders:
+  get:
+    operationId: getUserOrders
+    security:
+      - bearerAuth: []
+    tags:
+      - users
+
+    summary: Retrieve past order history for the authenticated user
+
+    description: |
+      Retrieves the complete list of historical bookstore orders placed by the currently
+      authenticated customer.
+
+      ### Authentication & Access Control
+      - **Required Authentication**: Bearer JWT token (`protect` middleware).
+      - **Email Verification**: User account email address must be verified (`isEmailVerified: true`).
+
+      ### Query Behavior
+      - Queries MongoDB `Order` collection matching `{ user: req.user.id }`.
+      - Returns each order with itemized book purchases, quantities, calculated monetary totals,
+        shipping address snapshot, order fulfillment status, and Stripe payment metadata.
+
+      ### Rate Limiting
+      - Protected by `getRateLimiter`: Maximum **30 requests per minute** per client IP.
+
+    responses:
+      "200":
+        description: Customer's previous order history retrieved successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/GetUserOrdersResponse"
+            example:
+              status: "success"
+              length: 1
+              data:
+                - _id: "683b1c204ae6c56e60594ed0"
+                  user: "683aa9c34ae6c56e60594eb2"
+                  items:
+                    - _id: "683b1c204ae6c56e60594ed1"
+                      book: "683aab454ae6c56e60594eb7"
+                      quantity: 2
+                  totalQuantity: 2
+                  totalPrice: 900.00
+                  shippingAddress:
+                    name: "Keyur Panchal"
+                    email: "keyur.panchal@example.com"
+                    phoneNumber: 9876543210
+                    street: "123 Tech Park Road"
+                    city: "Ahmedabad"
+                    state: "Gujarat"
+                    zipCode: 382418
+                  orderStatus: "paid"
+                  paymentInfo:
+                    stripePaymentId: "pi_3NzABC1234567890XYZ"
+                    stripeClientSecret: "pi_3NzABC1234567890XYZ_secret_abc123"
+                    paymentMethod: "card"
+                    status: "paid"
+                    paidAt: "2026-05-12T10:05:00.000Z"
+                  createdAt: "2026-05-12T10:00:00.000Z"
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: User account email is not verified.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not verified, please verified first then try again"
+
+      "404":
+        description: Orders not found.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "orders not found"
+
+      "429":
+        description: Rate limit exceeded (30 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+# ============================================================
+# 4. /users/favBooks (POST)
+# ============================================================
+favBooks:
+  post:
+    operationId: addFavBook
+    security:
+      - bearerAuth: []
+    tags:
+      - users
+
+    summary: Add a book to the authenticated user's favourites
+
+    description: |
+      Appends a specific book to the authenticated user's personal favourites collection.
+
+      ### Authentication & Access Control
+      - **Required Authentication**: Bearer JWT token (`protect` middleware).
+      - **Email Verification**: User account email address must be verified (`isEmailVerified: true`).
+
+      ### Business Rules & Duplicate Prevention
+      1. **Parameter Validation**:
+         Requires a valid `bookId` in the JSON request body. If omitted, returns HTTP `404 Not Found`
+         (`"please provide book id"`).
+      2. **Duplicate Check**:
+         Inspects `user.faviourites`. If the book already resides in the customer's favourites list,
+         the request is rejected with HTTP `400 Bad Request` (`"Book is already in favourites"`).
+      3. **Persistence**:
+         Appends the book's 24-character hexadecimal ObjectId to the `faviourites` array and saves
+         the modified user record.
+
+      ### Rate Limiting
+      - Protected by `mutationLimiter`: Maximum **10 mutation requests per minute** per client IP.
+
+    requestBody:
+      required: true
+      description: Object containing the 24-character MongoDB ObjectId of the book to favourite.
+      content:
+        application/json:
+          schema:
+            $ref: "./schema.yaml#/components/schemas/AddFavBookRequest"
+          example:
+            bookId: "683aab454ae6c56e60594eb7"
+
+    responses:
+      "200":
+        description: Book successfully appended to customer favourites.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/AddFavBookResponse"
+            example:
+              status: "success"
+              message: "Book added to favourites"
+              data:
+                _id: "683aa9c34ae6c56e60594eb2"
+                name: "Keyur Panchal"
+                email: "keyur.panchal@example.com"
+                faviourites:
+                  - "683aab454ae6c56e60594eb7"
+
+      "400":
+        description: Book is already present in customer favourites.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Book is already in favourites"
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: User account email is not verified.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not verified, please verified first then try again"
+
+      "404":
+        description: Book ID missing from request payload.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "please provide book id"
+
+      "429":
+        description: Rate limit exceeded (10 mutation requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+# ============================================================
+# 5. /users/all (GET - Admin Catalog Oversight)
+# ============================================================
+allUsers:
+  get:
+    operationId: getAllUsers
+    security:
+      - bearerAuth: []
+    tags:
+      - users
+
+    summary: Retrieve all registered users with multi-field search and pagination (Admin only)
+
+    description: |
+      Retrieves a paginated list of registered users across the platform for administrative auditing,
+      customer support, and account management.
+
+      ### Authentication & Access Control
+      - **Required Authentication**: Bearer JWT token (`protect` middleware).
+      - **Role Restriction**: Strictly restricted to users holding `role: 'admin'` (`restrictTo("admin")`).
+      - **Email Verification**: Admin account email address must be verified (`isEmailVerified: true`).
+
+      ### Multi-Field Regex Keyword Search
+      - **Name Search (`name`)**: Case-insensitive regular expression substring match (`{ name: { $regex: name, $options: "i" } }`).
+      - **Email Search (`email`)**: Case-insensitive regular expression substring match (`{ email: { $regex: email, $options: "i" } }`).
+      - **Phone Search (`phone`)**: Matches against phone number digits by converting numeric phone to string
+        via MongoDB `$expr` with `$regexMatch`.
+      - Filters can be combined simultaneously.
+
+      ### Sorting Behavior
+      - `sort=new` (default): Sorts descending by `-createdAt` (most recently registered accounts first).
+      - `sort=old`: Sorts ascending by `createdAt` (earliest registered accounts first).
+      - Unrecognized or omitted sort parameters default to `new`.
+
+      ### Pagination Rules
+      - `page`: 1-based page index (defaults to `1`).
+      - `limit`: Number of records returned per page (defaults to `10`).
+      - **Upper Bound**: If `limit` exceeds `100`, the server automatically caps it at `100`.
+      - Computes `skip = (page - 1) * limit`.
+      - Computes `totalPages = Math.ceil(totalItems / limit)` and `hasNextPage = page < totalPages`.
+      - Dynamic response message: `"all users found successfully"` if records exist, otherwise `"users not found"`.
+
+      ### Active User Query Filter
+      - Automatically excludes deactivated accounts (`{ isActive: { $ne: false } }`) via Mongoose `pre(/^find/)` hook.
+
+      ### Rate Limiting
+      - Protected by `getRateLimiter`: Maximum **30 requests per minute** per client IP.
+
+    parameters:
+      - name: name
+        in: query
+        required: false
+        description: Case-insensitive substring search matching user's full name.
+        schema:
+          type: string
+        example: "Keyur"
+
+      - name: email
+        in: query
+        required: false
+        description: Case-insensitive substring search matching user's email address.
+        schema:
+          type: string
+        example: "gmail.com"
+
+      - name: phone
+        in: query
+        required: false
+        description: Substring digit pattern matching user's telephone number.
+        schema:
+          type: string
+        example: "9876"
+
+      - name: sort
+        in: query
+        required: false
+        description: |
+          Ordering criterion for user accounts:
+          - `new`: Newest users first (descending by `-createdAt`).
+          - `old`: Oldest users first (ascending by `createdAt`).
+          Defaults to `new` if omitted or invalid.
+        schema:
+          type: string
+          enum:
+            - new
+            - old
+          default: new
+        example: "new"
+
+      - name: page
+        in: query
+        required: false
+        description: 1-based page index for pagination. Defaults to 1.
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        example: 1
+
+      - name: limit
+        in: query
+        required: false
+        description: |
+          Number of user records returned per page. Defaults to 10.
+          Automatically clamped to a maximum of 100 by the server.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+        example: 10
+
+    responses:
+      "200":
+        description: Platform users retrieved successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/GetAllUsersResponse"
+            example:
+              status: "success"
+              length: 2
+              pagination:
+                totalItems: 45
+                totalPages: 5
+                currentPage: 1
+                hasNextPage: true
+              message: "all users found successfully"
+              allUser:
+                - _id: "683aa9c34ae6c56e60594eb2"
+                  name: "Keyur Panchal"
+                  email: "keyur.panchal@example.com"
+                  isEmailVerified: true
+                  role: "user"
+                  dateOfBirth: "2005-06-08T00:00:00.000Z"
+                  phoneNumber: 9876543210
+                  gender: "male"
+                  isActive: true
+                  totalOrderes: 2
+                  totalSpent: 1250.00
+                  createdAt: "2025-05-31T07:03:31.815Z"
+                - _id: "683aa9c34ae6c56e60594eb3"
+                  name: "Jane Smith"
+                  email: "jane.smith@example.com"
+                  isEmailVerified: true
+                  role: "user"
+                  dateOfBirth: "1998-11-20T00:00:00.000Z"
+                  phoneNumber: 9123456780
+                  gender: "female"
+                  isActive: true
+                  totalOrderes: 5
+                  totalSpent: 4320.00
+                  createdAt: "2025-06-01T12:00:00.000Z"
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user is unverified or lacks administrator privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              nonAdminRole:
+                summary: User does not hold administrator role (role != 'admin')
+                value:
+                  status: "Error"
+                  message: "you are not allowed to perform this action"
+              unverifiedAccount:
+                summary: Admin account email is not verified
+                value:
+                  status: "Error"
+                  message: "you are not verified, please verified first then try again"
+
+      "429":
+        description: Rate limit exceeded (30 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+# ============================================================
+# 6. /users/{userId} (GET - Admin Single User Lookup)
+# ============================================================
+userById:
+  parameters:
+    - name: userId
+      in: path
+      required: true
+      description: |
+        The 24-character hexadecimal MongoDB ObjectId uniquely identifying the user account.
+      schema:
+        type: string
+        pattern: "^[0-9a-fA-F]{24}$"
+      example: "683aa9c34ae6c56e60594eb2"
+
+  get:
+    operationId: getUserById
+    security:
+      - bearerAuth: []
+    tags:
+      - users
+
+    summary: Retrieve a user account by unique ID (Admin only)
+
+    description: |
+      Retrieves complete personal profile and account metadata for an individual user by their
+      unique MongoDB ObjectId.
+
+      ### Authentication & Access Control
+      - **Required Authentication**: Bearer JWT token (`protect` middleware).
+      - **Role Restriction**: Strictly restricted to users holding `role: 'admin'` (`restrictTo("admin")`).
+      - **Email Verification**: Admin account email address must be verified (`isEmailVerified: true`).
+      - **Parameter Validation**: Middleware `validateId("userId")` validates that `userId` is a valid
+        24-character hexadecimal MongoDB ObjectId before execution.
+
+      ### Active Account Status
+      - Inactive or suspended user accounts are automatically excluded by Mongoose query middleware
+        (`{ isActive: { $ne: false } }`). If the user does not exist or has been suspended, returns
+        HTTP `404 Not Found` (`"user does not exists"`).
+
+      ### Rate Limiting
+      - Protected by `getRateLimiter`: Maximum **30 requests per minute** per client IP.
+
+    responses:
+      "200":
+        description: User record successfully retrieved.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/GetUserProfileResponse"
+            example:
+              status: "success"
+              message: "user found successfully"
+              data:
+                _id: "683aa9c34ae6c56e60594eb2"
+                name: "Keyur Panchal"
+                email: "keyur.panchal@example.com"
+                isEmailVerified: true
+                role: "user"
+                dateOfBirth: "2005-06-08T00:00:00.000Z"
+                phoneNumber: 9876543210
+                gender: "male"
+                address:
+                  line: "Near Metro Station"
+                  street: "123 Tech Park Road"
+                  city: "Ahmedabad"
+                  state: "Gujarat"
+                  zipCode: 382418
+                  country: "India"
+                isActive: true
+                totalOrderes: 2
+                totalSpent: 1250.00
+                faviourites:
+                  - "683aab454ae6c56e60594eb7"
+                createdAt: "2025-05-31T07:03:31.815Z"
+                updatedAt: "2026-05-12T10:00:00.000Z"
+
+      "400":
+        description: Malformed MongoDB ObjectId syntax in path parameter.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              invalidIdSyntax:
+                summary: Malformed MongoDB ObjectId
+                value:
+                  status: "Error"
+                  message: "Invalid Id, please enter correct id"
+              missingUserId:
+                summary: Missing userId parameter
+                value:
+                  status: "Error"
+                  message: "user id is not exists"
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user is unverified or lacks administrator privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              nonAdminRole:
+                summary: User does not hold administrator role (role != 'admin')
+                value:
+                  status: "Error"
+                  message: "you are not allowed to perform this action"
+              unverifiedAccount:
+                summary: Admin account email is not verified
+                value:
+                  status: "Error"
+                  message: "you are not verified, please verified first then try again"
+
+      "404":
+        description: User record not found or account is deactivated.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "user does not exists"
+
+      "429":
+        description: Rate limit exceeded (30 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
