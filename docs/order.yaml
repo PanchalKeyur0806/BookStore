@@ -1,6 +1,26 @@
+# order.yaml
+#
+# Order processing, Stripe payment checkout, refund handling,
+# and fulfillment API routes for the BookStore REST API.
+#
+# This file contains Path Item Objects that can be referenced
+# individually from the root openapi.yaml file.
+#
+# Paths:
+#   /orders/checkout-session:
+#     $ref: "./order.yaml#/checkoutSession"
+#   /orders/refundPayment/{stripePaymentId}:
+#     $ref: "./order.yaml#/refundPayments"
+#   /orders/all:
+#     $ref: "./order.yaml#/getAllOrders"
+#   /orders/order/{orderId}:
+#     $ref: "./order.yaml#/getOneOrder"
+#   /orders/success:
+#     $ref: "./order.yaml#/success"
 
-
-
+# ============================================================
+# 1. /orders/checkout-session (POST)
+# ============================================================
 checkoutSession:
   post:
     operationId: checkoutsession
@@ -9,17 +29,79 @@ checkoutSession:
     tags:
       - orders
 
-    summary: Create a checkout session for the authenticated user's cart
+    summary: Create a Stripe checkout session for the authenticated user's cart
 
     description: |
-      Creates a Stripe checkout session for the authenticated customer's shopping cart.
+      Initializes a secure, Stripe-hosted payment checkout session for all books currently stored
+      in the authenticated customer's shopping cart.
 
-      This endpoint requires authentication and is restricted to customers with
-      `role: 'user'`. The user's email address must be verified.
+      ### Authentication & Access Control
+      - **Required Authentication**: Bearer JWT token in the `Authorization` header (`protect` middleware).
+      - **Role Restriction**: Strictly restricted to customers with `role: 'user'` (`restrictTo("user")`).
+      - **Email Verification**: User account email address must be verified (`isEmailVerified: true`).
 
-      The checkout session is created using the Stripe SDK and includes the items in the user's cart.
+      ### Complete Checkout & Inventory Lifecycle
+      1. **User & Cart Lookup**:
+         Retrieves the customer document and active cart via `Cart.findOne({ user: req.user.id })`
+         with populated book details (`populate("items.book")`). If no cart exists, returns HTTP `404 Not Found`.
+      2. **Inventory Stock Validation & Reservation (`makeReservation` middleware)**:
+         - Inspects every item in the cart against active inventory in the `Books` collection (`Books.findById(item.book)`).
+         - If any requested quantity exceeds currently available inventory (`book.stock < item.quantity`),
+           checkout halts immediately with HTTP `400 Bad Request` (`"We have only [stock] of [title] left"`).
+         - Deletes any prior unfulfilled reservation for this user (`Reservation.findByIdAndDelete`).
+         - Creates a new temporary reservation record in MongoDB (`Reservation.create`) to hold inventory
+           while payment is processed.
+      3. **Stripe Checkout Session Creation**:
+         - Converts line items into Stripe line item format with `currency: "inr"`, book title, unit amount
+           (price converted to paise: `unit_amount = book.price * 100`), and quantity.
+         - Calls `stripe.checkout.sessions.create` configured with `mode: "payment"` and `payment_method_types: ["card"]`.
+         - Dynamic redirect callback URLs:
+           - `success_url`: `{host}/orders/success?session_id={CHECKOUT_SESSION_ID}`
+           - `cancel_url`: `{host}/orders/cancel`
+      4. **Asynchronous Order Fulfillment via Queue (`orderQueue`)**:
+         - Upon successful payment authorization, Stripe dispatches a `checkout.session.completed` webhook event.
+         - The webhook handler enqueues an `order-processing` background job into BullMQ `orderQueue`.
+         - A dedicated worker processes the session: generates the final `Order` record, marks the cart
+           `isOrdered: true`, decrements book stock, updates sales metrics, and cleans up the reservation.
+
+      ### Rate Limiting
+      - Protected by `mutationLimiter`: Maximum **10 mutation requests per minute** per client IP.
 
     responses:
+      "200":
+        description: Stripe checkout session successfully initialized.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/CheckoutSessionResponse"
+            example:
+              status: "success"
+              url: "https://checkout.stripe.com/c/pay/cs_test_a1b2c3d4e5f67890"
+              data:
+                id: "cs_test_a1b2c3d4e5f67890"
+                object: "checkout.session"
+                customer_email: "customer@example.com"
+                mode: "payment"
+                payment_status: "unpaid"
+                url: "https://checkout.stripe.com/c/pay/cs_test_a1b2c3d4e5f67890"
+
+      "400":
+        description: Insufficient inventory stock or reservation failure.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              insufficientStock:
+                summary: Requested quantity exceeds warehouse stock
+                value:
+                  status: "Error"
+                  message: "We have only 2 of Clean Code left"
+              reservationFailed:
+                summary: Reservation creation failed
+                value:
+                  status: "Error"
+                  message: "Reservation is not created yet"
 
       "401":
         description: Missing or invalid JWT authentication token.
@@ -33,7 +115,6 @@ checkoutSession:
                 value:
                   status: "Error"
                   message: "Token not found please register first"
-
               invalidToken:
                 summary: Token invalid or expired
                 value:
@@ -52,15 +133,32 @@ checkoutSession:
                 value:
                   status: "Error"
                   message: "you are not allowed to perform this action"
-
               unverifiedAccount:
                 summary: User account email is not verified
                 value:
                   status: "Error"
                   message: "you are not verified, please verified first then try again"
 
+      "404":
+        description: Customer account or cart not found.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              cartNotFound:
+                summary: Customer shopping cart is empty or missing
+                value:
+                  status: "Error"
+                  message: "Cart not found"
+              userNotFound:
+                summary: Authenticated user record does not exist
+                value:
+                  status: "Error"
+                  message: "User not found"
+
       "429":
-        description: Rate limit exceeded (30 requests per minute).
+        description: Rate limit exceeded (10 mutation requests per minute).
         content:
           application/json:
             schema:
@@ -79,8 +177,20 @@ checkoutSession:
               status: "Error"
               message: "Internal Server Error"
 
-# for refunding the payment
+# ============================================================
+# 2. /orders/refundPayment/{stripePaymentId} (GET)
+# ============================================================
 refundPayments:
+  parameters:
+    - name: stripePaymentId
+      in: path
+      required: true
+      description: |
+        The Stripe Payment Intent identifier associated with the order (e.g., `pi_3Nz...`).
+      schema:
+        type: string
+      example: "pi_3NzABC1234567890XYZ"
+
   get:
     operationId: refundPayments
     security:
@@ -88,17 +198,76 @@ refundPayments:
     tags:
       - orders
 
-    summary: Refund payments for a specific order
+    summary: Request a Stripe payment refund for an eligible paid order
 
     description: |
-      Refunds payments for a specific order.
+      Initiates a customer payment refund through the Stripe payment gateway for a completed order.
 
-      This endpoint requires authentication and is restricted to customers with
-      `role: 'user'`. The user's email address must be verified.
+      ### Authentication & Access Control
+      - **Required Authentication**: Bearer JWT token (`protect` middleware).
+      - **Role Restriction**: Strictly restricted to customers with `role: 'user'` (`restrictTo("user")`).
+      - **Email Verification**: User account email address must be verified (`isEmailVerified: true`).
 
-      The refund is processed using the Stripe SDK and includes the items in the user's cart.
+      ### Eligibility Criteria & Validation Rules (`checkRefundStatus` middleware)
+      1. **Order Ownership Verification**:
+         Queries MongoDB for an order where `paymentInfo.stripePaymentId` matches the path parameter
+         and `user` matches the authenticated customer (`req.user._id`).
+         If no matching order is found, returns HTTP `404 Not Found` (`"Order not found"`).
+      2. **7-Day Cancellation Window Enforcement**:
+         Refunds are strictly permitted within **168 hours (7 calendar days)** of order payment (`paidAt`).
+         If `todayDate > (paidAt + 168 hours)`, the request is rejected with HTTP `400 Bad Request`
+         (`"date is passed, you can't make a refund request"`).
+      3. **Order Status Requirement**:
+         The order must be in `"paid"` status. Unpaid, pending, or already cancelled orders cannot be refunded
+         (`"This payment cannot be refunded"`).
+
+      ### Refund Execution & Catalog Reconciliation
+      - Invokes `stripe.refunds.create({ payment_intent: stripePaymentId, reason: "requested_by_customer" })`.
+      - **Automated Webhook Synchronization (`charge.refunded`)**:
+        Upon Stripe refund confirmation, the incoming webhook handler:
+        - Updates order status: `orderStatus = "cancelled"`, `paymentInfo.status = "cancelled"`.
+        - Executes Mongoose `bulkWrite` to replenish catalog stock (`stock += quantity`) and decrement
+          revenue figures (`totalSales -= salesAmount`) on affected `Books` documents.
+
+      ### Rate Limiting
+      - Protected by rate limiting: Maximum **30 requests per minute** per client IP.
 
     responses:
+      "200":
+        description: Payment refund successfully processed through Stripe gateway.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/RefundPaymentResponse"
+            example:
+              status: "success"
+              message: "payment refund successfull"
+              data:
+                id: "re_3NzABC1234567890XYZ"
+                object: "refund"
+                amount: 125000
+                currency: "inr"
+                payment_intent: "pi_3NzABC1234567890XYZ"
+                status: "succeeded"
+                reason: "requested_by_customer"
+
+      "400":
+        description: Order ineligible for refund (cancellation window expired or invalid status).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              windowExpired:
+                summary: Refund requested after 7-day policy window
+                value:
+                  status: "Error"
+                  message: "date is passed, you can't make a refund request"
+              invalidOrderStatus:
+                summary: Order is not in paid status
+                value:
+                  status: "Error"
+                  message: "This payment cannot be refunded"
 
       "401":
         description: Missing or invalid JWT authentication token.
@@ -112,7 +281,6 @@ refundPayments:
                 value:
                   status: "Error"
                   message: "Token not found please register first"
-
               invalidToken:
                 summary: Token invalid or expired
                 value:
@@ -131,12 +299,34 @@ refundPayments:
                 value:
                   status: "Error"
                   message: "you are not allowed to perform this action"
-
               unverifiedAccount:
                 summary: User account email is not verified
                 value:
                   status: "Error"
                   message: "you are not verified, please verified first then try again"
+
+      "404":
+        description: Order record not found or payment ID omitted.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              orderNotFound:
+                summary: No matching order found for customer
+                value:
+                  status: "Error"
+                  message: "Order not found"
+              missingPaymentId:
+                summary: Payment ID parameter omitted
+                value:
+                  status: "Error"
+                  message: "Payment Id not found"
+              stripeRefundFailure:
+                summary: Stripe refund creation rejected
+                value:
+                  status: "Error"
+                  message: "failed to create refund, please try again later"
 
       "429":
         description: Rate limit exceeded (30 requests per minute).
@@ -158,7 +348,9 @@ refundPayments:
               status: "Error"
               message: "Internal Server Error"
 
-# Get all orders
+# ============================================================
+# 3. /orders/all (GET - Admin Order Oversight)
+# ============================================================
 getAllOrders:
   get:
     operationId: getAllOrders
@@ -167,17 +359,115 @@ getAllOrders:
     tags:
       - orders
 
-    summary: Get all orders
+    summary: Retrieve all platform orders with sorting and pagination (Admin only)
 
     description: |
-      Retrieves all orders.
+      Retrieves a paginated list of all customer orders across the platform for administrative
+      auditing, status tracking, and fulfillment operations.
 
-      This endpoint requires authentication and is restricted to customers with
-      `role: 'user'`. The user's email address must be verified.
+      ### Authentication & Access Control
+      - **Required Authentication**: Bearer JWT token (`protect` middleware).
+      - **Role Restriction**: Strictly restricted to users holding `role: 'admin'` (`restrictTo("admin")`).
+      - **Email Verification**: Admin account email address must be verified (`isEmailVerified: true`).
 
-      The orders are retrieved from the MongoDB database and include the items in the user's cart.
+      ### Sorting Behavior
+      - `sort=new` (default): Sorts descending by `-createdAt` (most recent orders first).
+      - `sort=old`: Sorts ascending by `createdAt` (oldest orders first).
+      - Unrecognized or omitted sort parameter automatically defaults to `new`.
+
+      ### Pagination Rules
+      - `page`: 1-based page index (defaults to `1`).
+      - `limit`: Number of records returned per page (defaults to `10`).
+      - **Upper Bound**: If `limit` exceeds `100`, the server automatically caps it at `100`.
+      - Computes `skip = (page - 1) * limit`.
+      - Computes `totalPages = Math.ceil(totalItems / limit)` and `hasNextPage = page < totalPages`.
+      - Dynamic response message: `"all orders found successfully"` when records match, or `"orders not found"`
+        when the catalog yields 0 records.
+
+      ### Rate Limiting
+      - Protected by `getRateLimiter`: Maximum **30 requests per minute** per client IP.
+
+    parameters:
+      - name: page
+        in: query
+        required: false
+        description: 1-based page index for pagination. Defaults to 1.
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        example: 1
+
+      - name: limit
+        in: query
+        required: false
+        description: |
+          Number of order records to return per page. Defaults to 10.
+          Automatically clamped to a maximum of 100 by the server.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+        example: 10
+
+      - name: sort
+        in: query
+        required: false
+        description: |
+          Chronological ordering of orders:
+          - `new`: Newest orders first (descending by `-createdAt`).
+          - `old`: Oldest orders first (ascending by `createdAt`).
+          Defaults to `new` if omitted or invalid.
+        schema:
+          type: string
+          enum:
+            - new
+            - old
+          default: new
+        example: "new"
 
     responses:
+      "200":
+        description: Platform orders retrieved successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/GetAllOrdersResponse"
+            example:
+              status: "success"
+              length: 2
+              message: "all orders found successfully"
+              pagination:
+                totalItems: 42
+                totalPages: 5
+                currentPage: 1
+                hasNextPage: true
+              data:
+                - _id: "683b1c204ae6c56e60594ed0"
+                  user: "683aa9c34ae6c56e60594eb2"
+                  items:
+                    - _id: "683b1c204ae6c56e60594ed1"
+                      book: "683aab454ae6c56e60594eb7"
+                      quantity: 2
+                  totalQuantity: 2
+                  totalPrice: 900.00
+                  shippingAddress:
+                    name: "Keyur Panchal"
+                    email: "keyur.panchal@example.com"
+                    phoneNumber: 9876543210
+                    street: "123 Tech Park Road"
+                    city: "Ahmedabad"
+                    state: "Gujarat"
+                    zipCode: 382418
+                  orderStatus: "paid"
+                  paymentInfo:
+                    stripePaymentId: "pi_3NzABC1234567890XYZ"
+                    stripeClientSecret: "pi_3NzABC1234567890XYZ_secret_abc123"
+                    paymentMethod: "card"
+                    status: "paid"
+                    paidAt: "2026-05-12T10:05:00.000Z"
+                  createdAt: "2026-05-12T10:00:00.000Z"
 
       "401":
         description: Missing or invalid JWT authentication token.
@@ -191,7 +481,6 @@ getAllOrders:
                 value:
                   status: "Error"
                   message: "Token not found please register first"
-
               invalidToken:
                 summary: Token invalid or expired
                 value:
@@ -199,20 +488,19 @@ getAllOrders:
                   message: "Please login to access this page"
 
       "403":
-        description: Authenticated user is unverified or lacks customer privileges.
+        description: Authenticated user is unverified or lacks administrator privileges.
         content:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/ErrorResponse"
             examples:
-              nonUserRole:
-                summary: User does not hold customer role (role != 'user')
+              nonAdminRole:
+                summary: User does not hold administrator role (role != 'admin')
                 value:
                   status: "Error"
                   message: "you are not allowed to perform this action"
-
               unverifiedAccount:
-                summary: User account email is not verified
+                summary: Admin account email is not verified
                 value:
                   status: "Error"
                   message: "you are not verified, please verified first then try again"
@@ -228,7 +516,7 @@ getAllOrders:
               message: "Too many requests. Please try again later"
 
       "500":
-        description: Internal server error or Stripe connection failure.
+        description: Internal server error.
         content:
           application/json:
             schema:
@@ -237,26 +525,94 @@ getAllOrders:
               status: "Error"
               message: "Internal Server Error"
 
-
-# Order Route for retrive only one Order
+# ============================================================
+# 4. /orders/order/{orderId} (GET - Redis Cache-Aside Lookup)
+# ============================================================
 getOneOrder:
+  parameters:
+    - name: orderId
+      in: path
+      required: true
+      description: |
+        The 24-character hexadecimal MongoDB ObjectId uniquely identifying the order.
+      schema:
+        type: string
+        pattern: "^[0-9a-fA-F]{24}$"
+      example: "683b1c204ae6c56e60594ed0"
+
   get:
     operationId: getOneOrder
     security: 
       - bearerAuth: []
     tags:
       - orders
-    summary: Get one order
+
+    summary: Retrieve an order by unique ID (with Redis caching)
+
     description: |
-      Retrieves one order.
+      Retrieves the complete document details of an individual order by its unique identifier,
+      utilizing a high-performance Redis cache-aside caching pattern.
 
-      This endpoint requires authentication and is restricted to customers with
-      `role: 'user'`. The user's email address must be verified.
+      ### Authentication & Access Control
+      - **Required Authentication**: Bearer JWT token (`protect` middleware).
+      - **Role Restriction**: Accessible to customers and administrators (`role: 'user'` or `'admin'`).
+      - **Email Verification**: User account email address must be verified (`isEmailVerified: true`).
+      - **Parameter Validation**: Middleware `validateId("orderId")` verifies that `orderId` is a syntactically
+        valid 24-character hexadecimal MongoDB ObjectId before controller execution.
 
-      The order is retrieved from the MongoDB database and include the items in the user's cart.
+      ### High-Performance Redis Cache-Aside Architecture
+      1. **Cache Lookup**:
+         Queries Redis in-memory cache for key `order:{orderId}` using `client.get(...)`.
+      2. **Cache Hit**:
+         - Returns cached serialized order JSON immediately from memory without querying MongoDB.
+         - Responds with HTTP `200 OK`: `{ status: "success", data: JSON.parse(orderData) }`.
+      3. **Cache Miss**:
+         - Queries MongoDB via `Order.findById(orderId)`.
+         - If no order exists, aborts with HTTP `404 Not Found` (`"Order not found"`).
+         - If found:
+           - Serializes the order document and stores it in Redis under key `order:{orderId}`.
+           - Responds with HTTP `200 OK`: `{ status: "success", data: order }`.
+
+      ### Rate Limiting
+      - Protected by `getRateLimiter`: Maximum **30 requests per minute** per client IP.
+
     responses:
+      "200":
+        description: Order successfully retrieved (from Redis cache or MongoDB).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/GetOneOrderResponse"
+            example:
+              status: "success"
+              data:
+                _id: "683b1c204ae6c56e60594ed0"
+                user: "683aa9c34ae6c56e60594eb2"
+                items:
+                  - _id: "683b1c204ae6c56e60594ed1"
+                    book: "683aab454ae6c56e60594eb7"
+                    quantity: 2
+                totalQuantity: 2
+                totalPrice: 900.00
+                shippingAddress:
+                  name: "Keyur Panchal"
+                  email: "keyur.panchal@example.com"
+                  phoneNumber: 9876543210
+                  street: "123 Tech Park Road"
+                  city: "Ahmedabad"
+                  state: "Gujarat"
+                  zipCode: 382418
+                orderStatus: "paid"
+                paymentInfo:
+                  stripePaymentId: "pi_3NzABC1234567890XYZ"
+                  stripeClientSecret: "pi_3NzABC1234567890XYZ_secret_abc123"
+                  paymentMethod: "card"
+                  status: "paid"
+                  paidAt: "2026-05-12T10:05:00.000Z"
+                createdAt: "2026-05-12T10:00:00.000Z"
+
       "400":
-        description: Invalid Order ID or missing parameter.
+        description: Invalid Order ID syntax or missing parameter.
         content:
           application/json:
             schema:
@@ -267,13 +623,11 @@ getOneOrder:
                 value:
                   status: "Error"
                   message: "Invalid Id, please enter correct id"
-
-              missingOrderid:
-                summary: Missing Order id parameter
+              missingOrderId:
+                summary: Missing Order ID parameter
                 value:
                   status: "Error"
-                  message: "please provide order id to get the order"
-
+                  message: "Order id not found"
 
       "401":
         description: Missing or invalid JWT authentication token.
@@ -292,23 +646,27 @@ getOneOrder:
                 value:
                   status: "Error"
                   message: "Please login to access this page"
+
       "403":
-        description: Authenticated user is unverified or lacks customer privileges.
+        description: Authenticated user is unverified or lacks required privileges.
         content:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/ErrorResponse"
-            examples:
-              nonUserRole:
-                summary: User does not hold customer role (role != 'user')
-                value:
-                  status: "Error"
-                  message: "you are not allowed to perform this action"
-              unverifiedAccount:
-                summary: User account email is not verified
-                value:
-                  status: "Error"
-                  message: "you are not verified, please verified first then try again"
+            example:
+              status: "Error"
+              message: "you are not verified, please verified first then try again"
+
+      "404":
+        description: Order record not found in database.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Order not found"
+
       "429":
         description: Rate limit exceeded (30 requests per minute).
         content:
@@ -318,6 +676,75 @@ getOneOrder:
             example:
               status: "Error"
               message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+# ============================================================
+# 5. /orders/success (GET - Stripe Checkout Redirection Handler)
+# ============================================================
+success:
+  get:
+    operationId: success
+    security: []
+    tags:
+      - orders
+
+    summary: Stripe Checkout payment completion redirect handler
+
+    description: |
+      Handles client redirection callback from Stripe hosted checkout following payment completion.
+
+      ### Workflow
+      1. Receives the `session_id` query parameter forwarded by Stripe upon checkout completion.
+      2. Validates session state with Stripe via `stripe.checkout.sessions.retrieve(req.query.session_id)`.
+      3. Issues an HTTP redirect (`res.redirect("/")`) forwarding the customer to the storefront homepage.
+
+    parameters:
+      - name: session_id
+        in: query
+        required: true
+        description: |
+          The Stripe Checkout Session ID passed by Stripe upon customer payment completion.
+        schema:
+          type: string
+        example: "cs_test_a1b2c3d4e5f67890"
+
+    responses:
+      "200":
+        description: Checkout completion landing or confirmation page.
+        content:
+          text/html:
+            schema:
+              type: string
+            example: "<p>Payment successful. Redirecting...</p>"
+
+      "302":
+        description: Temporary redirect to the bookstore storefront homepage (`/`).
+        headers:
+          Location:
+            description: Target redirect URI.
+            schema:
+              type: string
+              example: "/"
+
+      "400":
+        description: Missing session_id query parameter or invalid session state.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Session ID parameter is required"
+
       "500":
         description: Internal server error or Stripe connection failure.
         content:
@@ -327,17 +754,3 @@ getOneOrder:
             example:
               status: "Error"
               message: "Internal Server Error"
-
-
-# success route for order
-success:
-  get:
-    operationId: success
-    tags:
-      - orders
-    summary: Success page
-    description: |
-      Retrieves success page.
-    responses:
-      "300":
-        description: Redirect to / route

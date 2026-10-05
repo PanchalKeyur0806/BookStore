@@ -53,7 +53,15 @@ tags:
       - Removing items from cart with automatic price and quantity reconciliation
   - name: orders
     description: |
-      Order management
+      Order processing, Stripe checkout, refund requests, and fulfillment tracking.
+
+      Includes:
+      - Creating Stripe checkout sessions with inventory reservations and cart conversion
+      - Processing customer payment refunds with eligibility verification (7-day window)
+      - Administrator platform-wide order monitoring, sorting, and pagination
+      - Single order lookup with high-speed Redis caching
+      - Stripe payment completion and redirection handling
+
   - name: reviews
     description: |
       Customer book review and rating management endpoints.
@@ -489,4 +497,33 @@ components:
 
     GetMyReviewResponse:
       $ref: "./schema.yaml#/components/schemas/GetMyReviewResponse"
+
+    # ============================================================
+    # ORDER SCHEMAS
+    # ============================================================
+
+    OrderItem:
+      $ref: "./schema.yaml#/components/schemas/OrderItem"
+
+    OrderShippingAddress:
+      $ref: "./schema.yaml#/components/schemas/OrderShippingAddress"
+
+    OrderPaymentInfo:
+      $ref: "./schema.yaml#/components/schemas/OrderPaymentInfo"
+
+    Order:
+      $ref: "./schema.yaml#/components/schemas/Order"
+
+    CheckoutSessionResponse:
+      $ref: "./schema.yaml#/components/schemas/CheckoutSessionResponse"
+
+    RefundPaymentResponse:
+      $ref: "./schema.yaml#/components/schemas/RefundPaymentResponse"
+
+    GetAllOrdersResponse:
+      $ref: "./schema.yaml#/components/schemas/GetAllOrdersResponse"
+
+    GetOneOrderResponse:
+      $ref: "./schema.yaml#/components/schemas/GetOneOrderResponse"
+
 
