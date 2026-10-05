@@ -1,0 +1,1147 @@
+# review.yaml
+#
+# Customer review and rating API routes for the BookStore REST API.
+#
+# This file contains Path Item Objects that can be referenced
+# individually from the root openapi.yaml file.
+#
+# Paths:
+#   /books/{bookId}/review:
+#     $ref: "./review.yaml#/bookReviews"
+#   /reviews/all:
+#     $ref: "./review.yaml#/getAllReviews"
+#   /reviews/{bookId}/me:
+#     $ref: "./review.yaml#/getMyReview"
+
+# ============================================================
+# 1. /books/{bookId}/review (GET, POST, PATCH, DELETE)
+# ============================================================
+bookReviews:
+  parameters:
+    - name: bookId
+      in: path
+      required: true
+      description: |
+        The 24-character hexadecimal MongoDB ObjectId uniquely identifying the book.
+      schema:
+        type: string
+        pattern: "^[0-9a-fA-F]{24}$"
+      example: "683aab454ae6c56e60594eb7"
+
+  # ------------------------------------------------------------
+  # GET /books/{bookId}/review - Retrieve reviews for a specific book
+  # ------------------------------------------------------------
+  get:
+    operationId: getAllBooksReviews
+    security:
+      - bearerAuth: []
+    tags:
+      - reviews
+
+    summary: Retrieve all customer reviews for a specific book
+
+    description: |
+      Retrieves a paginated list of customer reviews and ratings for the specified book.
+
+      ### Authentication & Authorization
+      - **Required Authentication**: Bearer JWT token in the `Authorization` header (`protect` middleware).
+      - **Email Verification**: User account email address must be verified (`isEmailVerified: true`).
+
+      ### Query Filters & Regular Expression Search
+      - **Keyword Search (`msg`)**: Optional case-insensitive regular expression substring filter
+        (`{ review: { $regex: msg, $options: "i" } }`). Matches any review whose commentary contains
+        the query text.
+      - **Book Scoping**: Strictly scoped to the specified `bookId` (`{ book: new mongoose.Types.ObjectId(bookId) }`).
+
+      ### Sorting Behavior
+      - `sort=new` (default): Sorts descending by `-createdAt` (newest reviews first).
+      - `sort=old`: Sorts ascending by `createdAt` (oldest reviews first).
+      - Any unrecognized or omitted sort option automatically defaults to `new`.
+
+      ### Pagination Rules
+      - `page`: 1-based page index (defaults to `1`).
+      - `limit`: Number of records returned per page (defaults to `10`).
+      - **Upper Bound**: If `limit` exceeds `100`, the server automatically caps it at `100`.
+      - Computes `skip = (page - 1) * limit`.
+      - Computes `totalPages = Math.ceil(totalItems / limit)` and `hasNextPage = page < totalPages`.
+
+      ### Data Population
+      - Automatically populates the author's public name (`user: { _id, name }`) and book title
+        (`book: { _id, title }`) via Mongoose `pre(/^find/)` query middleware.
+
+      ### Rate Limiting
+      - Protected by `getRateLimiter`: Maximum **30 requests per minute** per client IP.
+
+    parameters:
+      - name: page
+        in: query
+        required: false
+        description: 1-based page index for pagination. Defaults to 1.
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        example: 1
+
+      - name: limit
+        in: query
+        required: false
+        description: |
+          Number of review records to return per page. Defaults to 10.
+          Automatically clamped to a maximum of 100 by the server.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+        example: 10
+
+      - name: sort
+        in: query
+        required: false
+        description: |
+          Chronological ordering of reviews:
+          - `new`: Newest reviews first (descending by `-createdAt`).
+          - `old`: Oldest reviews first (ascending by `createdAt`).
+          Defaults to `new` if omitted or invalid.
+        schema:
+          type: string
+          enum:
+            - new
+            - old
+          default: new
+        example: "new"
+
+      - name: msg
+        in: query
+        required: false
+        description: |
+          Case-insensitive substring search filter matching text within the review commentary.
+        schema:
+          type: string
+        example: "helpful"
+
+    responses:
+      "200":
+        description: Paginated collection of reviews retrieved successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/GetBookReviewsResponse"
+            example:
+              status: "success"
+              length: 2
+              pagination:
+                totalItems: 14
+                totalPages: 7
+                currentPage: 1
+                hasNextPage: true
+              data:
+                - _id: "683ab1234ae6c56e60594eca"
+                  review: "An exceptional, comprehensive guide to clean architecture and readable code."
+                  rating: 5
+                  user:
+                    _id: "683aa9c34ae6c56e60594eb2"
+                    name: "Keyur Panchal"
+                  book:
+                    _id: "683aab454ae6c56e60594eb7"
+                    title: "Clean Code"
+                  createdAt: "2026-05-12T10:00:00.000Z"
+                  updatedAt: "2026-05-12T10:00:00.000Z"
+                - _id: "683ab1234ae6c56e60594ecb"
+                  review: "Must-read for every aspiring software craftsman. Changed how I structure functions."
+                  rating: 4.5
+                  user:
+                    _id: "683aa9c34ae6c56e60594eb5"
+                    name: "Jane Smith"
+                  book:
+                    _id: "683aab454ae6c56e60594eb7"
+                    title: "Clean Code"
+                  createdAt: "2026-05-10T14:30:00.000Z"
+                  updatedAt: "2026-05-10T14:30:00.000Z"
+
+      "400":
+        description: Missing book identifier parameter.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Please provide bookId"
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: User email address is not verified.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not verified, please verified first then try again"
+
+      "429":
+        description: Rate limit exceeded (30 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+  # ------------------------------------------------------------
+  # POST /books/{bookId}/review - Submit a new review and rating
+  # ------------------------------------------------------------
+  post:
+    operationId: createReview
+    security:
+      - bearerAuth: []
+    tags:
+      - reviews
+
+    summary: Submit a new customer review and rating for a book
+
+    description: |
+      Creates a new review commentary and numerical star rating for the designated book.
+
+      ### Authentication & Access Control
+      - **Required Authentication**: Bearer JWT token (`protect` middleware).
+      - **Role Restriction**: Accessible only to customers holding `role: 'user'` (`restrictTo("user")`).
+      - **Email Verification**: User account email address must be verified (`isEmailVerified: true`).
+
+      ### Catalog Validation & Business Rules
+      1. **Book Existence Verification**:
+         Queries MongoDB via `Books.findById(bookId)`. If the target book does not exist in the catalog,
+         the request fails immediately with HTTP `404 Not Found` (`"Book not exists"`).
+      2. **One Review per Customer per Book**:
+         The database enforces a compound unique index on `{ user: 1, book: 1 }`. If the authenticated
+         customer has already submitted a review for this book, the creation request is rejected.
+      3. **Rating Constraints**:
+         Rating must be a numerical value between **1** (minimum) and **5** (maximum).
+
+      ### Automated Rating Aggregation Lifecycle
+      Upon saving a new review, a Mongoose `post("save")` lifecycle hook triggers:
+      - Executes aggregation pipeline `Review.calcAvgRating(this.book)`.
+      - Computes the updated cumulative rating count (`nRating`) and arithmetic average (`avgRating`).
+      - Updates `ratingQuantity` and `ratingAverage` fields directly on the corresponding `Books` catalog document.
+
+      ### Rate Limiting
+      - Protected by `mutationLimiter`: Maximum **10 mutation requests per minute** per client IP.
+
+    requestBody:
+      required: true
+      description: Review text and numerical rating submitted by the customer.
+      content:
+        application/json:
+          schema:
+            $ref: "./schema.yaml#/components/schemas/CreateReviewRequest"
+          example:
+            review: "An exceptional, comprehensive guide to clean architecture and readable code."
+            rating: 5
+
+    responses:
+      "200":
+        description: Review successfully created and book rating statistics updated.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/CreateReviewResponse"
+            example:
+              status: "success"
+              message: "Review created successfully"
+              data:
+                _id: "683ab1234ae6c56e60594eca"
+                user: "683aa9c34ae6c56e60594eb2"
+                book: "683aab454ae6c56e60594eb7"
+                review: "An exceptional, comprehensive guide to clean architecture and readable code."
+                rating: 5
+                createdAt: "2026-05-12T10:00:00.000Z"
+                updatedAt: "2026-05-12T10:00:00.000Z"
+
+      "400":
+        description: Validation failure or duplicate review submission.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              ratingOutOfRange:
+                summary: Rating outside permitted 1-5 boundary
+                value:
+                  status: "Error"
+                  message: "min 1 rating is required"
+              missingReview:
+                summary: Missing required review commentary
+                value:
+                  status: "Error"
+                  message: "review is required"
+              duplicateReview:
+                summary: User has already reviewed this book
+                value:
+                  status: "Error"
+                  message: "Duplicate key error: you have already reviewed this book"
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user is unverified or lacks customer privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              nonUserRole:
+                summary: User does not hold customer role (e.g., admin)
+                value:
+                  status: "Error"
+                  message: "you are not allowed to perform this action"
+              unverifiedAccount:
+                summary: User email is not verified
+                value:
+                  status: "Error"
+                  message: "you are not verified, please verified first then try again"
+
+      "404":
+        description: Target book does not exist in catalog.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Book not exists"
+
+      "429":
+        description: Rate limit exceeded (10 mutation requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+  # ------------------------------------------------------------
+  # PATCH /books/{bookId}/review - Update customer's review
+  # ------------------------------------------------------------
+  patch:
+    operationId: updateReview
+    security:
+      - bearerAuth: []
+    tags:
+      - reviews
+
+    summary: Update the authenticated customer's review and rating for a book
+
+    description: |
+      Updates the existing review text commentary and/or star rating submitted by the
+      authenticated customer for the designated book.
+
+      ### Authentication & Access Control
+      - **Required Authentication**: Bearer JWT token (`protect` middleware).
+      - **Role Restriction**: Accessible only to customers holding `role: 'user'` (`restrictTo("user")`).
+      - **Email Verification**: User account email address must be verified (`isEmailVerified: true`).
+
+      ### Operational Logic
+      1. Verifies that `bookId` is supplied in the request path parameters.
+      2. Executes `Review.findOneAndUpdate({ book: bookId, user: req.user.id }, req.body)`.
+      3. **Automated Rating Resynchronization**:
+         A Mongoose `post(/^findOneAnd/)` middleware hook executes immediately after the update:
+         - Calls `calcAvgRating(doc.book._id)` with the reviewed book's ID.
+         - Aggregates all current reviews for the book and synchronizes `ratingAverage` and `ratingQuantity`
+           on the `Books` document.
+
+      ### Rate Limiting
+      - Protected by `mutationLimiter`: Maximum **10 mutation requests per minute** per client IP.
+
+    requestBody:
+      required: true
+      description: Modified review commentary or revised numerical rating.
+      content:
+        application/json:
+          schema:
+            $ref: "./schema.yaml#/components/schemas/UpdateReviewRequest"
+          example:
+            review: "Updated review: Still an absolute classic for any software craftsman."
+            rating: 4.5
+
+    responses:
+      "200":
+        description: Review successfully updated.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/UpdateReviewResponse"
+            example:
+              status: "success"
+              message: "review updated successfully"
+
+      "400":
+        description: Validation failure (rating out of bounds).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "max 5 rating is required"
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user is unverified or lacks customer privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              nonUserRole:
+                summary: User does not hold customer role
+                value:
+                  status: "Error"
+                  message: "you are not allowed to perform this action"
+              unverifiedAccount:
+                summary: User email is not verified
+                value:
+                  status: "Error"
+                  message: "you are not verified, please verified first then try again"
+
+      "404":
+        description: Book identifier missing or review not found.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Book id not found"
+
+      "429":
+        description: Rate limit exceeded (10 mutation requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+  # ------------------------------------------------------------
+  # DELETE /books/{bookId}/review - Delete customer's review
+  # ------------------------------------------------------------
+  delete:
+    operationId: deleteReview
+    security:
+      - bearerAuth: []
+    tags:
+      - reviews
+
+    summary: Delete the authenticated customer's review for a book
+
+    description: |
+      Permanently deletes the customer's review and star rating for the specified book.
+
+      ### Authentication & Access Control
+      - **Required Authentication**: Bearer JWT token (`protect` middleware).
+      - **Role Restriction**: Accessible only to customers holding `role: 'user'` (`restrictTo("user")`).
+      - **Email Verification**: User account email address must be verified (`isEmailVerified: true`).
+
+      ### Operational Logic
+      1. Executes `Review.findOneAndDelete({ book: bookId, user: req.user.id })`.
+      2. **Automated Rating Resynchronization**:
+         A Mongoose `post(/^findOneAnd/)` middleware hook executes immediately after deletion:
+         - Recalculates the book's remaining review statistics via `calcAvgRating(doc.book._id)`.
+         - Updates `ratingQuantity` and `ratingAverage` on the `Books` document.
+         - If all reviews for the book have been deleted, automatically resets both `ratingAverage` and `ratingQuantity` to `0`.
+
+      ### Rate Limiting
+      - Protected by `generalRateLimiter`: Maximum **15 requests per minute** per client IP.
+
+    responses:
+      "200":
+        description: Review successfully deleted and book rating metrics recalculated.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/DeleteReviewResponse"
+            example:
+              status: "success"
+              message: "Review deleted successfully"
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user is unverified or lacks customer privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              nonUserRole:
+                summary: User does not hold customer role
+                value:
+                  status: "Error"
+                  message: "you are not allowed to perform this action"
+              unverifiedAccount:
+                summary: User email is not verified
+                value:
+                  status: "Error"
+                  message: "you are not verified, please verified first then try again"
+
+      "429":
+        description: Rate limit exceeded (15 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+# ============================================================
+# 2. getAllBookReview (Alias Path Item for GET /books/{bookId}/review)
+# ============================================================
+getAllBookReview:
+  parameters:
+    - name: bookId
+      in: path
+      required: true
+      description: |
+        The 24-character hexadecimal MongoDB ObjectId uniquely identifying the book.
+      schema:
+        type: string
+        pattern: "^[0-9a-fA-F]{24}$"
+      example: "683aab454ae6c56e60594eb7"
+
+  get:
+    operationId: getAllBookReviewsAlias
+    security:
+      - bearerAuth: []
+    tags:
+      - reviews
+
+    summary: Retrieve all customer reviews for a specific book
+
+    description: |
+      Retrieves a paginated list of customer reviews and ratings for the specified book.
+
+      ### Authentication & Authorization
+      - **Required Authentication**: Bearer JWT token in the `Authorization` header (`protect` middleware).
+      - **Email Verification**: User account email address must be verified (`isEmailVerified: true`).
+
+      ### Query Filters & Regular Expression Search
+      - **Keyword Search (`msg`)**: Optional case-insensitive regular expression substring filter
+        (`{ review: { $regex: msg, $options: "i" } }`). Matches any review whose commentary contains
+        the query text.
+      - **Book Scoping**: Strictly scoped to the specified `bookId` (`{ book: new mongoose.Types.ObjectId(bookId) }`).
+
+      ### Sorting Behavior
+      - `sort=new` (default): Sorts descending by `-createdAt` (newest reviews first).
+      - `sort=old`: Sorts ascending by `createdAt` (oldest reviews first).
+      - Any unrecognized or omitted sort option automatically defaults to `new`.
+
+      ### Pagination Rules
+      - `page`: 1-based page index (defaults to `1`).
+      - `limit`: Number of records returned per page (defaults to `10`, capped at `100`).
+      - Computes `skip = (page - 1) * limit`.
+      - Computes `totalPages = Math.ceil(totalItems / limit)` and `hasNextPage = page < totalPages`.
+
+      ### Rate Limiting
+      - Protected by `getRateLimiter`: Maximum **30 requests per minute** per client IP.
+
+    parameters:
+      - name: page
+        in: query
+        required: false
+        description: 1-based page index for pagination. Defaults to 1.
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        example: 1
+
+      - name: limit
+        in: query
+        required: false
+        description: Number of reviews per page (defaults to 10, max 100).
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+        example: 10
+
+      - name: sort
+        in: query
+        required: false
+        description: Sort order (`new` or `old`).
+        schema:
+          type: string
+          enum:
+            - new
+            - old
+          default: new
+        example: "new"
+
+      - name: msg
+        in: query
+        required: false
+        description: Case-insensitive substring regex search on review commentary.
+        schema:
+          type: string
+        example: "clean"
+
+    responses:
+      "200":
+        description: Paginated collection of reviews retrieved successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/GetBookReviewsResponse"
+            example:
+              status: "success"
+              length: 1
+              pagination:
+                totalItems: 1
+                totalPages: 1
+                currentPage: 1
+                hasNextPage: false
+              data:
+                - _id: "683ab1234ae6c56e60594eca"
+                  review: "An exceptional, comprehensive guide to clean architecture and readable code."
+                  rating: 5
+                  user:
+                    _id: "683aa9c34ae6c56e60594eb2"
+                    name: "Keyur Panchal"
+                  book:
+                    _id: "683aab454ae6c56e60594eb7"
+                    title: "Clean Code"
+                  createdAt: "2026-05-12T10:00:00.000Z"
+                  updatedAt: "2026-05-12T10:00:00.000Z"
+
+      "400":
+        description: Missing book identifier parameter.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Please provide bookId"
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Please login to access this page"
+
+      "403":
+        description: User email address is not verified.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not verified, please verified first then try again"
+
+      "429":
+        description: Rate limit exceeded (30 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+# ============================================================
+# 3. /reviews/all (GET - Admin Catalog Oversight)
+# ============================================================
+getAllReviews:
+  get:
+    operationId: getAllReviews
+    security:
+      - bearerAuth: []
+    tags:
+      - reviews
+
+    summary: Retrieve all catalog reviews across all books (Admin only)
+
+    description: |
+      Provides comprehensive administrative oversight of all customer reviews submitted
+      across the bookstore catalog.
+
+      ### Authentication & Access Control
+      - **Required Authentication**: Bearer JWT token (`protect` middleware).
+      - **Role Restriction**: Strictly restricted to users holding `role: 'admin'` (`restrictTo("admin")`).
+      - **Email Verification**: Admin account email address must be verified (`isEmailVerified: true`).
+
+      ### Search & Filtering Capabilities
+      - **Keyword Search (`msg`)**: Optional case-insensitive regular expression substring filter
+        (`{ review: { $regex: msg, $options: "i" } }`) searched across all review bodies in the database.
+      - **Catalog-wide Scope**: Unlike the book-specific review endpoint, this queries all reviews
+        without filtering by a specific book ID.
+
+      ### Sorting Behavior
+      - `sort=new` (default): Sorts descending by `-createdAt` (most recently submitted reviews first).
+      - `sort=old`: Sorts ascending by `createdAt` (oldest reviews first).
+      - Any unrecognized or omitted sort option automatically defaults to `new`.
+
+      ### Pagination Rules
+      - `page`: 1-based page index (defaults to `1`).
+      - `limit`: Number of records returned per page (defaults to `10`).
+      - **Upper Bound**: If `limit` exceeds `100`, the server automatically caps it at `100`.
+      - Computes `skip = (page - 1) * limit`.
+      - Computes `totalPages = Math.ceil(totalItems / limit)` and `hasNextPage = page < totalPages`.
+
+      ### Data Population
+      - Automatically populates the author's public name (`user: { _id, name }`) and book title
+        (`book: { _id, title }`) via Mongoose `pre(/^find/)` query middleware.
+
+      ### Rate Limiting
+      - Protected by `getRateLimiter`: Maximum **30 requests per minute** per client IP.
+
+    parameters:
+      - name: page
+        in: query
+        required: false
+        description: 1-based page index for pagination. Defaults to 1.
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+        example: 1
+
+      - name: limit
+        in: query
+        required: false
+        description: |
+          Number of review records to return per page. Defaults to 10.
+          Automatically clamped to a maximum of 100 by the server.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+        example: 10
+
+      - name: sort
+        in: query
+        required: false
+        description: |
+          Chronological ordering of reviews:
+          - `new`: Newest reviews first (descending by `-createdAt`).
+          - `old`: Oldest reviews first (ascending by `createdAt`).
+          Defaults to `new` if omitted or invalid.
+        schema:
+          type: string
+          enum:
+            - new
+            - old
+          default: new
+        example: "new"
+
+      - name: msg
+        in: query
+        required: false
+        description: |
+          Case-insensitive substring search filter matching text within the review commentary.
+        schema:
+          type: string
+        example: "practical"
+
+    responses:
+      "200":
+        description: Catalog-wide collection of customer reviews retrieved successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/GetAllReviewsAdminResponse"
+            example:
+              status: "success"
+              message: "reviews found successfully"
+              pagination:
+                totalItems: 48
+                totalPages: 5
+                currentPage: 1
+                hasNextPage: true
+              length: 10
+              data:
+                - _id: "683ab1234ae6c56e60594eca"
+                  review: "An exceptional, comprehensive guide to clean architecture and readable code."
+                  rating: 5
+                  user:
+                    _id: "683aa9c34ae6c56e60594eb2"
+                    name: "Keyur Panchal"
+                  book:
+                    _id: "683aab454ae6c56e60594eb7"
+                    title: "Clean Code"
+                  createdAt: "2026-05-12T10:00:00.000Z"
+                  updatedAt: "2026-05-12T10:00:00.000Z"
+                - _id: "683ab1234ae6c56e60594ecc"
+                  review: "A masterpiece of system architecture and concurrency patterns."
+                  rating: 5
+                  user:
+                    _id: "683aa9c34ae6c56e60594eb6"
+                    name: "Alex Johnson"
+                  book:
+                    _id: "683aab454ae6c56e60594eb9"
+                    title: "Designing Data-Intensive Applications"
+                  createdAt: "2026-05-11T09:15:00.000Z"
+                  updatedAt: "2026-05-11T09:15:00.000Z"
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user is unverified or lacks administrator privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              nonAdminRole:
+                summary: User does not hold administrator role (role != 'admin')
+                value:
+                  status: "Error"
+                  message: "you are not allowed to perform this action"
+              unverifiedAccount:
+                summary: Admin email is not verified
+                value:
+                  status: "Error"
+                  message: "you are not verified, please verified first then try again"
+
+      "429":
+        description: Rate limit exceeded (30 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"
+
+# ============================================================
+# 4. /reviews/{bookId}/me (GET - Redis Cache-Aside Lookup)
+# ============================================================
+getMyReview:
+  parameters:
+    - name: bookId
+      in: path
+      required: true
+      description: |
+        The 24-character hexadecimal MongoDB ObjectId uniquely identifying the book.
+      schema:
+        type: string
+        pattern: "^[0-9a-fA-F]{24}$"
+      example: "683aab454ae6c56e60594eb7"
+
+  get:
+    operationId: getOneReview
+    security:
+      - bearerAuth: []
+    tags:
+      - reviews
+
+    summary: Retrieve current user's review for a book (with Redis caching)
+
+    description: |
+      Retrieves the specific review and rating written by the authenticated customer
+      for the designated book, utilizing a high-performance Redis cache-aside caching pattern.
+
+      ### Authentication & Access Control
+      - **Required Authentication**: Bearer JWT token (`protect` middleware).
+      - **Role Restriction**: Accessible only to customers holding `role: 'user'` (`restrictTo("user")`).
+      - **Email Verification**: User account email address must be verified (`isEmailVerified: true`).
+      - **Parameter Validation**: Middleware `validateId("bookId")` validates that `bookId` is a valid
+        24-character hexadecimal MongoDB ObjectId before controller execution.
+
+      ### High-Performance Redis Cache-Aside Architecture
+      1. **Cache Lookup**:
+         Checks Redis for key `user:{userId}:book:{bookId}` using `client.get(...)`.
+      2. **Cache Hit**:
+         - Returns cached serialized review immediately from Redis memory without querying MongoDB.
+         - Responds with HTTP `200 OK`:
+           `{ status: "success", message: "review found successfully", data: JSON.parse(reviewData) }`.
+      3. **Cache Miss**:
+         - Queries MongoDB for an existing review via `Review.findOne({ book: bookId, user: req.user.id })`.
+         - If no review exists, aborts with HTTP `404 Not Found` (`"Review not found"`).
+         - If found:
+           - Serializes the review document and writes it to Redis key `user:{userId}:book:{bookId}`.
+           - Responds with HTTP `200 OK`: `{ status: "success", data: review }`.
+
+      ### Rate Limiting
+      - Protected by `getRateLimiter`: Maximum **30 requests per minute** per client IP.
+
+    responses:
+      "200":
+        description: Review retrieved successfully (from Redis cache or MongoDB).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/GetMyReviewResponse"
+            examples:
+              redisCacheHit:
+                summary: Fast lookup served from Redis cache
+                value:
+                  status: "success"
+                  message: "review found successfully"
+                  data:
+                    _id: "683ab1234ae6c56e60594eca"
+                    review: "An exceptional, comprehensive guide to clean architecture and readable code."
+                    rating: 5
+                    user:
+                      _id: "683aa9c34ae6c56e60594eb2"
+                      name: "Keyur Panchal"
+                    book:
+                      _id: "683aab454ae6c56e60594eb7"
+                      title: "Clean Code"
+                    createdAt: "2026-05-12T10:00:00.000Z"
+                    updatedAt: "2026-05-12T10:00:00.000Z"
+              databaseHit:
+                summary: Initial lookup fetched from MongoDB and populated into Redis cache
+                value:
+                  status: "success"
+                  data:
+                    _id: "683ab1234ae6c56e60594eca"
+                    review: "An exceptional, comprehensive guide to clean architecture and readable code."
+                    rating: 5
+                    user:
+                      _id: "683aa9c34ae6c56e60594eb2"
+                      name: "Keyur Panchal"
+                    book:
+                      _id: "683aab454ae6c56e60594eb7"
+                      title: "Clean Code"
+                    createdAt: "2026-05-12T10:00:00.000Z"
+                    updatedAt: "2026-05-12T10:00:00.000Z"
+
+      "400":
+        description: Malformed MongoDB ObjectId syntax in path parameter.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Invalid Id, please enter correct id"
+
+      "401":
+        description: Missing or invalid JWT authentication token.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user is unverified or lacks customer privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              nonUserRole:
+                summary: User does not hold customer role
+                value:
+                  status: "Error"
+                  message: "you are not allowed to perform this action"
+              unverifiedAccount:
+                summary: User email is not verified
+                value:
+                  status: "Error"
+                  message: "you are not verified, please verified first then try again"
+
+      "404":
+        description: Review not found or book identifier omitted.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              reviewNotFound:
+                summary: User has not reviewed this book
+                value:
+                  status: "Error"
+                  message: "Review not found"
+              missingBookId:
+                summary: Book ID not found
+                value:
+                  status: "Error"
+                  message: "Book id not found"
+
+      "429":
+        description: Rate limit exceeded (30 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+      "500":
+        description: Internal server error.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Internal Server Error"

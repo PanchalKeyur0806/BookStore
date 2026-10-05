@@ -54,6 +54,18 @@ tags:
   - name: orders
     description: |
       Order management
+  - name: reviews
+    description: |
+      Customer book review and rating management endpoints.
+
+      Includes:
+      - Retrieving paginated customer reviews and star ratings for a specific book
+      - Submitting customer reviews with automatic book aggregate rating recalculation
+      - Updating user reviews and modifying star ratings
+      - Deleting customer reviews with automated catalog score reconciliation
+      - Administrator catalog-wide review monitoring, searching, and pagination
+      - High-performance personal review retrieval with Redis cache-aside caching
+
 
 paths:
   # ============================================================
@@ -164,6 +176,20 @@ paths:
 
   /orders/success:
     $ref: "./order.yaml#/success"
+
+  # ============================================================
+  # REVIEW ROUTES
+  # ============================================================
+
+  /books/{bookId}/review:
+    $ref: "./review.yaml#/bookReviews"
+
+  /reviews/all:
+    $ref: "./review.yaml#/getAllReviews"
+
+  /reviews/{bookId}/me:
+    $ref: "./review.yaml#/getMyReview"
+
 
 # ==============================================================
 # COMPONENTS
@@ -423,3 +449,44 @@ components:
 
     CartResponse:
       $ref: "./schema.yaml#/components/schemas/CartResponse"
+
+    # ============================================================
+    # REVIEW SCHEMAS
+    # ============================================================
+
+    ReviewUserRef:
+      $ref: "./schema.yaml#/components/schemas/ReviewUserRef"
+
+    ReviewBookRef:
+      $ref: "./schema.yaml#/components/schemas/ReviewBookRef"
+
+    Review:
+      $ref: "./schema.yaml#/components/schemas/Review"
+
+    ReviewCreatedData:
+      $ref: "./schema.yaml#/components/schemas/ReviewCreatedData"
+
+    CreateReviewRequest:
+      $ref: "./schema.yaml#/components/schemas/CreateReviewRequest"
+
+    UpdateReviewRequest:
+      $ref: "./schema.yaml#/components/schemas/UpdateReviewRequest"
+
+    CreateReviewResponse:
+      $ref: "./schema.yaml#/components/schemas/CreateReviewResponse"
+
+    UpdateReviewResponse:
+      $ref: "./schema.yaml#/components/schemas/UpdateReviewResponse"
+
+    DeleteReviewResponse:
+      $ref: "./schema.yaml#/components/schemas/DeleteReviewResponse"
+
+    GetBookReviewsResponse:
+      $ref: "./schema.yaml#/components/schemas/GetBookReviewsResponse"
+
+    GetAllReviewsAdminResponse:
+      $ref: "./schema.yaml#/components/schemas/GetAllReviewsAdminResponse"
+
+    GetMyReviewResponse:
+      $ref: "./schema.yaml#/components/schemas/GetMyReviewResponse"
+

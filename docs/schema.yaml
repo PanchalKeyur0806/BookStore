@@ -1950,5 +1950,284 @@ components:
             - $ref: "#/components/schemas/Cart"
             - type: "null"
 
+    # =========================================================
+    # REVIEW SCHEMAS
+    # =========================================================
+
+    ReviewUserRef:
+      type: object
+      description: Populated user entity containing public reviewer identification.
+      required:
+        - _id
+        - name
+      properties:
+        _id:
+          type: string
+          description: 24-character hexadecimal MongoDB ObjectId of the user.
+          example: "683aa9c34ae6c56e60594eb2"
+        name:
+          type: string
+          description: Full name of the user who authored the review.
+          example: "Keyur Panchal"
+
+    ReviewBookRef:
+      type: object
+      description: Populated book reference containing minimal identification metadata.
+      required:
+        - _id
+        - title
+      properties:
+        _id:
+          type: string
+          description: 24-character hexadecimal MongoDB ObjectId of the reviewed book.
+          example: "683aab454ae6c56e60594eb7"
+        title:
+          type: string
+          description: Title of the reviewed book.
+          example: "Clean Code"
+
+    Review:
+      type: object
+      description: |
+        Fully populated customer review document stored in MongoDB.
+        Contains the written review content, star rating, author details,
+        associated book, and creation/modification timestamps.
+      required:
+        - _id
+        - review
+        - rating
+        - user
+        - book
+        - createdAt
+        - updatedAt
+      properties:
+        _id:
+          type: string
+          description: Unique 24-character hexadecimal MongoDB ObjectId of the review document.
+          example: "683ab1234ae6c56e60594eca"
+        review:
+          type: string
+          description: The textual review commentary submitted by the customer.
+          example: "An exceptional, comprehensive guide to clean architecture and readable code."
+        rating:
+          type: number
+          minimum: 1
+          maximum: 5
+          description: Customer rating score on a 1.0 to 5.0 star scale.
+          example: 5
+        user:
+          $ref: "#/components/schemas/ReviewUserRef"
+        book:
+          $ref: "#/components/schemas/ReviewBookRef"
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp of review submission.
+          example: "2026-05-12T10:00:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp of last modification.
+          example: "2026-05-12T10:00:00.000Z"
+
+    ReviewCreatedData:
+      type: object
+      description: |
+        Newly created review document returned by MongoDB containing raw ObjectId references
+        for user and book.
+      required:
+        - _id
+        - review
+        - rating
+        - user
+        - book
+        - createdAt
+        - updatedAt
+      properties:
+        _id:
+          type: string
+          description: Unique 24-character hexadecimal MongoDB ObjectId of the newly created review.
+          example: "683ab1234ae6c56e60594eca"
+        review:
+          type: string
+          description: Textual content of the submitted review.
+          example: "An exceptional, comprehensive guide to clean architecture and readable code."
+        rating:
+          type: number
+          minimum: 1
+          maximum: 5
+          description: Star rating score (minimum 1, maximum 5).
+          example: 5
+        user:
+          type: string
+          description: 24-character hexadecimal MongoDB ObjectId of the authoring user.
+          example: "683aa9c34ae6c56e60594eb2"
+        book:
+          type: string
+          description: 24-character hexadecimal MongoDB ObjectId of the reviewed book.
+          example: "683aab454ae6c56e60594eb7"
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO 8601 creation timestamp.
+          example: "2026-05-12T10:00:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: ISO 8601 last update timestamp.
+          example: "2026-05-12T10:00:00.000Z"
+
+    CreateReviewRequest:
+      type: object
+      description: Request payload required to submit a customer review and rating for a book.
+      required:
+        - review
+        - rating
+      properties:
+        review:
+          type: string
+          minLength: 1
+          description: Customer's detailed review commentary. Leading and trailing whitespace is trimmed.
+          example: "An exceptional, comprehensive guide to clean architecture and readable code."
+        rating:
+          type: number
+          minimum: 1
+          maximum: 5
+          description: Star rating for the book, ranging from 1 to 5.
+          example: 5
+
+    UpdateReviewRequest:
+      type: object
+      description: |
+        Request payload for updating an existing customer review.
+        At least one field should be supplied to modify the review.
+      properties:
+        review:
+          type: string
+          minLength: 1
+          description: Updated review commentary.
+          example: "Updated review: Still an absolute classic for any software craftsman."
+        rating:
+          type: number
+          minimum: 1
+          maximum: 5
+          description: Updated star rating score on a scale from 1 to 5.
+          example: 4.5
+
+    CreateReviewResponse:
+      type: object
+      description: Response payload returned after successfully creating a new book review.
+      required:
+        - status
+        - message
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        message:
+          type: string
+          example: "Review created successfully"
+        data:
+          $ref: "#/components/schemas/ReviewCreatedData"
+
+    UpdateReviewResponse:
+      type: object
+      description: Response payload returned after successfully modifying an existing review.
+      required:
+        - status
+        - message
+      properties:
+        status:
+          type: string
+          example: "success"
+        message:
+          type: string
+          example: "review updated successfully"
+
+    DeleteReviewResponse:
+      type: object
+      description: Response payload returned after successfully deleting a customer review.
+      required:
+        - status
+        - message
+      properties:
+        status:
+          type: string
+          example: "success"
+        message:
+          type: string
+          example: "Review deleted successfully"
+
+    GetBookReviewsResponse:
+      type: object
+      description: Paginated collection of customer reviews for a specific book.
+      required:
+        - status
+        - length
+        - pagination
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        length:
+          type: integer
+          description: Total number of review records returned on the current page.
+          example: 2
+        pagination:
+          $ref: "#/components/schemas/PaginationMetadata"
+        data:
+          type: array
+          description: Array of populated review documents matching the search and pagination criteria.
+          items:
+            $ref: "#/components/schemas/Review"
+
+    GetAllReviewsAdminResponse:
+      type: object
+      description: Paginated catalog-wide collection of customer reviews for administrator oversight.
+      required:
+        - status
+        - message
+        - pagination
+        - length
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        message:
+          type: string
+          example: "reviews found successfully"
+        pagination:
+          $ref: "#/components/schemas/PaginationMetadata"
+        length:
+          type: integer
+          description: Total number of review records returned on the current page.
+          example: 10
+        data:
+          type: array
+          description: Array of populated review records across all books in the catalog.
+          items:
+            $ref: "#/components/schemas/Review"
+
+    GetMyReviewResponse:
+      type: object
+      description: Single customer review document retrieved for the authenticated user and specified book.
+      required:
+        - status
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        message:
+          type: string
+          description: Operational status message included when retrieved from Redis cache ("review found successfully").
+          example: "review found successfully"
+        data:
+          $ref: "#/components/schemas/Review"
+
+
 
 
