@@ -2,17 +2,9 @@
 #
 # Authentication-related API routes for the BookStore REST API.
 #
-# This file contains Path Item Objects that can be referenced
-# individually from the root openapi.yaml file.
-#
-# Example:
-#
-# paths:
-#   /auth/register:
-#     $ref: "./auth.yaml#/register"
-#
-#   /auth/login:
-#     $ref: "./auth.yaml#/login"
+# This file contains Path Item Objects referenced individually from the root openapi.yaml file.
+# Rate limit: 5 requests per minute (authRateLimiter) applies to all endpoints under /auth.
+# System roles: Strictly two roles exist in the system - 'user' (default customer) and 'admin' (store administrator).
 
 register:
   post:
@@ -21,34 +13,28 @@ register:
     tags:
       - auth
 
-    summary: Register a new user
+    summary: Register a new user account
 
     description: |
-      Creates a new user account using the provided personal information.
+      Creates a new customer account in the BookStore database using the supplied personal details,
+      contact numbers, date of birth, and physical delivery address.
 
-      After successful registration, an OTP is generated and sent to the
-      user's email address. The user must verify this OTP using the
-      `/auth/verifyOtp` endpoint before the email address is considered verified.
+      Upon account creation:
+      1. A user record is persisted in MongoDB with `role: "user"`, `isEmailVerified: false`, `isActive: true`, and an empty cart and favourites list.
+      2. A 6-digit numeric verification OTP is generated with a 30-second expiration window (`verificationTokenExpiry`).
+      3. An HTML verification email is dispatched via Nodemailer to the user's email address (or development mailbox).
+      4. If the email fails to deliver, the newly created user record is rolled back and deleted from the database.
+      5. The client must submit the received OTP to `/auth/verifyOtp` within 30 seconds to verify their email and obtain an access token.
 
-      This endpoint is publicly accessible and does not require authentication.
-
-      ### Registration flow
-
-      1. Client submits the user's registration information.
-      2. Server validates the registration data.
-      3. A new user account is created.
-      4. An OTP is generated and sent to the provided email address.
-      5. The client uses `/auth/verifyOtp` to verify the email address.
+      Rate limit: 5 requests per minute.
 
     requestBody:
       required: true
-      description: |
-        Information required to create a new user account.
+      description: Personal and delivery details required to register a customer account.
       content:
         application/json:
           schema:
             $ref: "./schema.yaml#/components/schemas/RegisterUserRequest"
-
           example:
             name: "Panchal Keyur"
             email: "panchalkeyur.dev@gmail.com"
@@ -58,32 +44,28 @@ register:
             gender: "male"
             address:
               line: "vastral"
+              street: "Dakor"
               city: "amdavad"
               state: "guj"
               zipCode: 382418
               country: "ind"
-              street: "Dakor"
 
     responses:
-      "201":
+      "200":
         description: |
-          User registered successfully.
-
-          An OTP has been sent to the user's email address for email
-          verification.
+          User successfully registered and verification OTP dispatched to email.
         content:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/RegisterUserResponse"
-
             example:
               status: "success"
               message: "user is registered, otp is being sent to email for verification"
               data:
+                _id: "6ab8c6b4deb5c92fda07308a"
                 name: "Panchal Keyur"
-                email: "stealth.killer.119@gmail.com"
+                email: "panchalkeyur.dev@gmail.com"
                 isEmailVerified: false
-                faviourites: []
                 role: "user"
                 dateOfBirth: "2005-06-08T00:00:00.000Z"
                 phoneNumber: 1234567890
@@ -98,70 +80,74 @@ register:
                 isActive: true
                 totalOrderes: 0
                 totalSpent: 0
-                _id: "6ab8c6b4deb5c92fda07308a"
                 cart: []
+                faviourites: []
                 createdAt: "2026-09-27T07:33:08.757Z"
                 updatedAt: "2026-09-27T07:33:08.757Z"
 
       "400":
         description: |
-          The registration request is invalid.
-
-          This response can occur when one or more registration fields
-          are missing or contain invalid values.
+          Validation error in submitted registration attributes or failure to dispatch verification email.
         content:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/ErrorResponse"
-
             examples:
               invalidName:
-                summary: Invalid name
+                summary: Name validation error
                 value:
                   status: "Error"
                   message: "please enter correct name"
-
-              emptyName:
-                summary: Empty name
-                value:
-                  status: "Error"
-                  message: "please enter your name"
-
-              invalidEmail:
-                summary: Invalid email
-                value:
-                  status: "Error"
-                  message: "please provide valid email address"
-
               emptyEmail:
-                summary: Empty email
+                summary: Missing email
                 value:
                   status: "Error"
                   message: "email field should not be empty"
-
+              invalidEmail:
+                summary: Invalid email format
+                value:
+                  status: "Error"
+                  message: "please provide valid email address"
+              missingPassword:
+                summary: Missing password
+                value:
+                  status: "Error"
+                  message: "please enter correct password"
               invalidDateOfBirth:
-                summary: Invalid date of birth
+                summary: Missing or invalid date of birth
                 value:
                   status: "Error"
                   message: "please enter your date of birth"
-
               invalidPhoneNumber:
-                summary: Invalid phone number
+                summary: Phone number not 10 digits
                 value:
                   status: "Error"
                   message: "phoneNumber lenght must be 10 characters"
-
               invalidGender:
-                summary: Invalid gender
+                summary: Invalid gender value
                 value:
                   status: "Error"
                   message: "Invalid gender selection"
-
-              invalidAddress:
-                summary: Invalid address
+              emptyAddress:
+                summary: Missing address field
                 value:
                   status: "Error"
                   message: "address field should not be empty"
+              emailSendFailed:
+                summary: Nodemailer delivery failure
+                value:
+                  status: "Error"
+                  message: "failed to send an otp, please try again later"
+
+      "429":
+        description: Rate limit exceeded (maximum 5 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
 
 login:
   post:
@@ -170,61 +156,53 @@ login:
     tags:
       - auth
 
-    summary: Log in to an account
+    summary: Authenticate user and receive JWT access token
 
     description: |
-      Authenticates an existing user using their email address and password.
+      Authenticates an existing user account using email and password credentials.
 
-      If the credentials are valid, the server returns a JWT access token.
-      The returned token can be supplied in the Authorization header when
-      accessing protected API endpoints.
+      Authentication flow:
+      1. Express-validator checks that email and password fields are present and well-formed.
+      2. User is looked up in MongoDB by email address.
+      3. The submitted plain password is verified against the bcrypt password hash.
+      4. A JSON Web Token (JWT) signed with `JWT_SECRET_KEY` and configured expiration (`JWT_EXPIRES`) is generated containing the user ID payload `{ id: userId }`.
+      5. The JWT token and complete user profile are returned to the client.
 
-      ### Authentication flow
+      Client requests to protected endpoints must supply this token in the header:
+      `Authorization: Bearer <JWT_TOKEN>`
 
-      1. User submits their email address and password.
-      2. Server validates the credentials.
-      3. If valid, a JWT token is generated.
-      4. The client stores the JWT token.
-      5. The client sends the token with protected API requests.
-
-      ### Authorization header
-
-      Protected requests should include:
-
-          Authorization: Bearer <JWT_TOKEN>
-
-      This endpoint is publicly accessible and does not require an existing
-      authentication token.
+      Rate limit: 5 requests per minute.
 
     requestBody:
       required: true
-      description: |
-        Login credentials for an existing user account.
+      description: User credentials for login authentication.
       content:
         application/json:
           schema:
             $ref: "./schema.yaml#/components/schemas/LoginRequest"
-
           example:
             email: "hello-1@gmail.com"
             password: "hello-1234"
 
     responses:
       "200":
-        description: |
-          User authenticated successfully.
-
-          The response contains a JWT access token and the authenticated
-          user's information.
+        description: Authentication successful; JWT access token returned.
         content:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/LoginResponse"
-
             example:
               status: "success"
               token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
               data:
+                _id: "683aa9c34ae6c56e60594eb2"
+                name: "hello-1"
+                email: "hello-1@gmail.com"
+                isEmailVerified: true
+                role: "user"
+                dateOfBirth: "2005-06-08T00:00:00.000Z"
+                phoneNumber: 1234567890
+                gender: "male"
                 address:
                   line: "6 nilkanth row house"
                   street: "vastral"
@@ -232,77 +210,68 @@ login:
                   state: "guj"
                   zipCode: 382418
                   country: "ind"
-                _id: "683aa9c34ae6c56e60594eb2"
-                name: "hello-1"
-                email: "hello-1@gmail.com"
-                isEmailVerified: true
-                role: "admin"
-                dateOfBirth: "2005-06-08T00:00:00.000Z"
-                phoneNumber: 1234567890
-                gender: "male"
                 isActive: true
                 totalOrderes: 0
                 totalSpent: 0
                 cart: []
-                createdAt: "2025-05-31T07:03:31.815Z"
-                updatedAt: "2025-05-31T07:03:31.815Z"
                 faviourites:
                   - "6836a66013f0b230bee67c1f"
                   - "683697c5c4efe00d7ca88e5a"
+                createdAt: "2025-05-31T07:03:31.815Z"
+                updatedAt: "2025-05-31T07:03:31.815Z"
 
       "400":
-        description: |
-          The login request is invalid.
-
-          The supplied email address or password does not satisfy the
-          request validation rules.
+        description: Validation error in email or password fields.
         content:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/ErrorResponse"
-
             examples:
-              invalidEmail:
-                summary: Invalid email
-                value:
-                  status: "Error"
-                  message: "please provide valid email address"
-
               emptyEmail:
-                summary: Empty email
+                summary: Missing email
                 value:
                   status: "Error"
                   message: "email field should not be empty"
-
-              invalidPassword:
-                summary: Invalid password
+              invalidEmail:
+                summary: Invalid email format
+                value:
+                  status: "Error"
+                  message: "please provide valid email address"
+              missingPassword:
+                summary: Missing password
                 value:
                   status: "Error"
                   message: "please enter correct password"
 
       "401":
-        description: |
-          Authentication failed because the supplied password is incorrect.
+        description: Incorrect password supplied for account.
         content:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/ErrorResponse"
-
             example:
               status: "Error"
               message: "your password is incorrect, please enter correct password"
 
       "404":
-        description: |
-          No user exists with the provided email address.
+        description: No registered user found matching the provided email address.
         content:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/ErrorResponse"
-
             example:
               status: "Error"
-              message: "No user found"
+              message: "No user found "
+
+      "429":
+        description: Rate limit exceeded (maximum 5 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
 
 verifyOtp:
   post:
@@ -311,56 +280,55 @@ verifyOtp:
     tags:
       - auth
 
-    summary: Verify email OTP
+    summary: Verify email verification OTP
 
     description: |
-      Verifies the one-time password (OTP) that was sent to the user's
-      email address during registration.
+      Verifies the 6-digit one-time password (OTP) sent to the user's email during registration.
 
-      When the OTP is valid, the user's email address is marked as verified
-      and a JWT access token is returned.
+      Verification logic:
+      1. Client provides `email` and the 6-digit `otp`.
+      2. Server checks if the user account exists in MongoDB.
+      3. Verifies whether the account is already verified (`isEmailVerified === true`).
+      4. Checks whether the OTP has expired (`Date.now() > verificationTokenExpiry`).
+      5. Validates the submitted OTP against the stored `emailVerifiedToken`.
+      6. Upon successful verification:
+         - `isEmailVerified` is updated to `true`.
+         - `emailVerifiedToken` and `verificationTokenExpiry` are cleared.
+         - A signed JWT access token is minted and returned so the user can immediately interact with protected endpoints.
 
-      ### Verification flow
-
-      1. User registers using `/auth/register`.
-      2. Server sends an OTP to the registered email address.
-      3. User submits the OTP and email address to this endpoint.
-      4. Server validates the OTP.
-      5. The user's email is marked as verified.
-      6. A JWT access token is returned.
-
-      This endpoint is publicly accessible and does not require authentication.
+      Rate limit: 5 requests per minute.
 
     requestBody:
       required: true
-      description: |
-        Email address and OTP received by the user.
+      description: Email address and 6-digit verification OTP.
       content:
         application/json:
           schema:
             $ref: "./schema.yaml#/components/schemas/VerifyOtpRequest"
-
           example:
-            otp: 123456
             email: "panchalkeyur.dev@gmail.com"
+            otp: 151858
 
     responses:
       "200":
-        description: |
-          OTP verified successfully.
-
-          The response contains a JWT access token and the verified
-          user's information.
+        description: OTP verified successfully; email marked verified and JWT access token issued.
         content:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/VerifyOtpResponse"
-
             example:
               status: "success"
               message: "otp verified successfully"
               token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
               data:
+                _id: "6abe528d92d30f6fb4097f64"
+                name: "Panchal Keyur"
+                email: "panchalkeyur.dev@gmail.com"
+                isEmailVerified: true
+                role: "user"
+                dateOfBirth: "2005-06-08T00:00:00.000Z"
+                phoneNumber: 1234567890
+                gender: "male"
                 address:
                   line: "near metro station, indiranagar"
                   street: "10th main road"
@@ -368,54 +336,61 @@ verifyOtp:
                   state: "kar"
                   zipCode: 560038
                   country: "ind"
-                _id: "6abe528d92d30f6fb4097f64"
-                name: "Panchal Keyur"
-                email: "panchalkeyur.dev@gmail.com"
-                isEmailVerified: true
-                faviourites: []
-                role: "user"
-                dateOfBirth: "2005-06-08T00:00:00.000Z"
-                phoneNumber: 1234567890
-                gender: "male"
                 isActive: true
                 totalOrderes: 0
                 totalSpent: 0
                 cart: []
+                faviourites: []
                 createdAt: "2026-10-01T12:31:09.871Z"
                 updatedAt: "2026-10-01T12:31:09.871Z"
 
       "400":
-        description: |
-          The OTP is invalid or has expired.
+        description: Missing OTP, user already verified, expired OTP, or incorrect OTP entered.
         content:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/ErrorResponse"
-
             examples:
+              missingOtp:
+                summary: Missing OTP
+                value:
+                  status: "Error"
+                  message: "please provide an otp for verification"
+              alreadyVerified:
+                summary: User already verified
+                value:
+                  status: "Error"
+                  message: "user already verified"
               expiredOtp:
-                summary: Expired OTP
+                summary: OTP expired (after 30 seconds)
                 value:
                   status: "Error"
                   message: "otp is expired"
-
-              invalidOtp:
-                summary: Invalid OTP
+              incorrectOtp:
+                summary: Incorrect OTP value
                 value:
                   status: "Error"
                   message: "please enter correct otp"
 
       "404":
-        description: |
-          No user exists for the supplied email address.
+        description: No account exists matching the provided email address.
         content:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/ErrorResponse"
-
             example:
               status: "Error"
               message: "user does not exists"
+
+      "429":
+        description: Rate limit exceeded (maximum 5 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
 
 resendOtp:
   post:
@@ -427,320 +402,293 @@ resendOtp:
     summary: Resend email verification OTP
 
     description: |
-      Generates and sends a new one-time password (OTP) to the user's
-      registered email address.
+      Generates and sends a new 6-digit verification OTP to the user's registered email address.
 
-      This endpoint can be used when the original OTP has expired,
-      was not received, or is otherwise no longer usable.
+      Endpoint rules:
+      1. The account must exist in the database.
+      2. If the user's email is already verified (`isEmailVerified === true`), resending is rejected with 400.
+      3. A fresh OTP is generated with a new 30-second expiry timestamp.
+      4. An HTML email with the new OTP is dispatched via Nodemailer.
 
-      The endpoint is publicly accessible and does not require
-      authentication.
-
-      A user whose email address has already been verified cannot request
-      another verification OTP.
+      Rate limit: 5 requests per minute.
 
     requestBody:
       required: true
-      description: |
-        The email address associated with the user account.
+      description: Email address of the unverified customer account.
       content:
         application/json:
           schema:
             $ref: "./schema.yaml#/components/schemas/ResendOtpRequest"
-
           example:
             email: "panchalkeyur.dev@gmail.com"
 
     responses:
       "200":
-        description: |
-          A new OTP was successfully sent to the user's email address.
+        description: New verification OTP sent successfully.
         content:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/ResendOtpResponse"
-
             example:
               status: "success"
               message: "otp is sent to email, please check your email"
 
       "400":
-        description: |
-          The supplied email address is invalid, missing, or the user's
-          email address has already been verified.
+        description: Missing email, user already verified, or email delivery failed.
         content:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/ErrorResponse"
-
             examples:
-              invalidEmail:
-                summary: Invalid email
+              missingEmail:
+                summary: Missing email address
                 value:
                   status: "Error"
                   message: "please provide your email"
-
-              userVerified:
+              alreadyVerified:
                 summary: User already verified
                 value:
                   status: "Error"
                   message: "user already verified"
+              emailSendFailed:
+                summary: Nodemailer failure
+                value:
+                  status: "Error"
+                  message: "failed to send an otp, please try again later"
 
       "404":
-        description: |
-          No user exists with the provided email address.
+        description: No account exists with the provided email address.
         content:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/ErrorResponse"
-
             example:
               status: "Error"
               message: "user not found"
+
+      "429":
+        description: Rate limit exceeded (maximum 5 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
 
 forgotPassword:
   post:
     operationId: forgotPassword
     security:
       - bearerAuth: []
-
     tags:
       - auth
 
-    summary: Request password reset email
+    summary: Request password reset email link
 
     description: |
-      Requests a password reset email for a user account.
+      Generates a secure password reset token and emails a reset link to the user.
 
-      The current implementation requires a valid JWT bearer token.
-      The email address is supplied in the request body and is used to
-      identify the account for which the password reset process is started.
+      Security & controller requirements:
+      1. **Protected Route**: Requires a valid JWT Bearer token in the `Authorization` header (`protect` middleware).
+      2. The authenticated user must have a verified email address (`isEmailVerified === true`).
+      3. The email to reset is provided in the request body.
+      4. A 32-byte cryptographically secure random token is generated and SHA-256 hashed into `passwordResetToken` on the user record.
+      5. The reset token has a 30-second expiry (`passwordExpires = Date.now() + 30 * 1000`).
+      6. An email containing the password reset link `${protocol}://${host}/auth/resetPassword/${resetToken}` is sent to the customer.
 
-      The authenticated user must also have a verified email address.
-
-      ### Authentication
-
-      This endpoint requires:
-
-          Authorization: Bearer <JWT_TOKEN>
-
-      ### Password reset flow
-
-      1. Client authenticates using a JWT.
-      2. Client submits the account email address.
-      3. Server validates the JWT.
-      4. Server checks whether the user's email is verified.
-      5. Server sends a password reset email.
-      6. The email contains a password reset token.
-      7. The client uses the reset token with `/auth/resetpassword/{token}`.
+      Rate limit: 5 requests per minute.
 
     requestBody:
       required: true
-      description: |
-        Email address associated with the account whose password needs
-        to be reset.
+      description: Email address of the account requesting password reset.
       content:
         application/json:
           schema:
             $ref: "./schema.yaml#/components/schemas/ForgotPasswordRequest"
-
           example:
             email: "panchalkeyur.dev@gmail.com"
 
     responses:
       "200":
-        description: |
-          Password reset email was successfully sent.
+        description: Password reset email successfully dispatched.
         content:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/ForgotPasswordResponse"
-
             example:
               status: "success"
               message: "email send successfully"
 
       "400":
-        description: |
-          The request failed because authentication information is missing
-          or the request body contains invalid data.
+        description: Missing authentication token, missing email, user not found, or email dispatch failure.
         content:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/ErrorResponse"
-
             examples:
-              tokenNotFound:
-                summary: Token not found
+              tokenMissingHeader:
+                summary: Missing Bearer token header
                 value:
                   status: "Error"
                   message: "Token not found please register first"
-
-              pleaseLogin:
-                summary: Missing authentication token
+              emptyBearerToken:
+                summary: Empty Bearer token
                 value:
                   status: "Error"
                   message: "Please login to access this page"
-
               missingEmail:
-                summary: Missing email
+                summary: Missing email in request body
                 value:
                   status: "Error"
                   message: "please provide email address"
-
               userNotFound:
-                summary: User not found
+                summary: User not found for email
                 value:
                   status: "Error"
                   message: "user not found"
+              emailSendFailed:
+                summary: Nodemailer failure
+                value:
+                  status: "Error"
+                  message: "Error occured while sending email, please try again later"
 
       "403":
-        description: |
-          The authenticated user's email address has not been verified.
+        description: Authenticated user's email address has not been verified.
         content:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/ErrorResponse"
-
             example:
               status: "Error"
               message: "you are not verified, please verified first then try again"
 
       "404":
-        description: |
-          No user exists for the authenticated account.
+        description: User associated with JWT token no longer exists in database.
         content:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/ErrorResponse"
-
             example:
               status: "Error"
               message: "user not found, please register first"
+
+      "429":
+        description: Rate limit exceeded (maximum 5 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
 
 resetPassword:
   post:
     operationId: resetPassword
     security:
       - bearerAuth: []
-
     tags:
       - auth
 
-    summary: Reset user password
+    summary: Reset user password using reset token
 
     description: |
-      Changes the authenticated user's password using a password reset token.
+      Changes the user's password using the unhashed password reset token received via email.
 
-      The reset token is supplied as a path parameter and is expected to
-      have been provided to the user through the password reset email.
+      Flow & controller requirements:
+      1. **Protected Route**: Requires a valid JWT Bearer token in the `Authorization` header (`protect` middleware).
+      2. The reset token is supplied as a URL path parameter `:token`.
+      3. The server hashes `:token` with SHA-256 and searches for a user where `passwordResetToken` matches and `passwordExpires > Date.now()`.
+      4. If the token is invalid or expired (30-second lifespan), an error is returned.
+      5. The new `password` is set, `passwordResetToken` and `passwordExpires` are cleared to `undefined`, and the user document is saved (which triggers bcrypt hashing via Mongoose `pre('save')`).
 
-      The current implementation also requires a valid JWT bearer token.
-
-      ### Authentication
-
-      This endpoint requires:
-
-          Authorization: Bearer <JWT_TOKEN>
-
-      ### Reset password flow
-
-      1. User requests a password reset.
-      2. Server sends a reset email containing a reset token.
-      3. Client extracts the reset token from the reset link.
-      4. Client sends the reset token in the URL.
-      5. Client sends the new password in the request body.
-      6. Server validates the JWT and reset token.
-      7. User's password is changed.
+      Rate limit: 5 requests per minute.
 
     parameters:
       - name: token
         in: path
         required: true
-
-        description: |
-          Password reset token sent to the user's email address.
-
-          This token identifies and authorizes the password reset operation.
-
+        description: Unhashed password reset token string extracted from the email link.
         schema:
           type: string
-
-        example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.reset-token"
+        example: "a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0"
 
     requestBody:
       required: true
-      description: |
-        The new password that should replace the user's existing password.
+      description: The new password to replace the current password.
       content:
         application/json:
           schema:
             $ref: "./schema.yaml#/components/schemas/ResetPasswordRequest"
-
           example:
             password: "hello-1234"
 
     responses:
       "200":
-        description: |
-          Password was successfully changed.
+        description: Password reset successfully completed.
         content:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/ResetPasswordResponse"
-
             example:
               status: "success"
               message: "password chagned successfully"
 
       "400":
-        description: |
-          The reset request is invalid or the required authentication
-          information was not supplied.
+        description: Missing authentication token, missing password, or invalid/expired reset token.
         content:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/ErrorResponse"
-
             examples:
-              tokenNotFound:
-                summary: Token not found
+              tokenMissingHeader:
+                summary: Missing Bearer token header
                 value:
                   status: "Error"
                   message: "Token not found please register first"
-
-              pleaseLogin:
-                summary: Missing authentication token
+              emptyBearerToken:
+                summary: Empty Bearer token
                 value:
                   status: "Error"
                   message: "Please login to access this page"
-
               missingPassword:
-                summary: Missing password
+                summary: Missing password in body
                 value:
                   status: "Error"
                   message: "please provide your password"
+              tokenInvalidOrExpired:
+                summary: Reset token invalid or expired
+                value:
+                  status: "Error"
+                  message: "user not found"
 
       "403":
-        description: |
-          The authenticated user's email address has not been verified.
+        description: Authenticated user's email address has not been verified.
         content:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/ErrorResponse"
-
             example:
               status: "Error"
               message: "you are not verified, please verified first then try again"
 
       "404":
-        description: |
-          No user exists for the authenticated account.
+        description: User associated with JWT token no longer exists in database.
         content:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/ErrorResponse"
-
             example:
               status: "Error"
               message: "user not found, please register first"
+
+      "429":
+        description: Rate limit exceeded (maximum 5 requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"

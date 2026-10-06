@@ -38,6 +38,6 @@ routes.get("/order/order-growth", orderGrowth);
 routes.get("/order/avg-order-value", averageOrderValueAnalytics);
 routes.get("/customer/analytics", customerAnalytics);
 routes.get("/payment/analytics", paymentAnalytics);
-routes.get("/deactivateUser", getRateLimiter, deactiveUser);
+routes.get("/deactivateUser/:userId", getRateLimiter, deactiveUser);
 
 export default routes;
