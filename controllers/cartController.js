@@ -50,6 +50,12 @@ const addToCart = catchAsync(async (req, res, next) => {
 
   // check the quantity of Books
   const book = await Books.findById(bookId);
+
+  // if book not found
+  if (!book) {
+    return next(new AppError("Book not found", 404))
+  }
+
   if (book.stock < quantity) {
     return next(
       new AppError(

@@ -5,6 +5,15 @@ const DuplicateKeyError = () => {
   return new AppError(message, 400);
 };
 
+const JWTExpiredError = () => {
+  return new AppError("Your token has expired. Please log in again.", 401);
+}
+
+const JWTInvalidError = () => {
+  return new AppError("Invalid token. Please log in again.", 401);
+};
+
+
 // send production error
 const sendProductionError = (error, res) => {
   if (error.isOperational) {
@@ -13,6 +22,7 @@ const sendProductionError = (error, res) => {
       message: error.message,
     });
   } else {
+    console.log(error)
     res.status(200).json({
       status: "Error",
       message: "Internal Server Error",
@@ -29,6 +39,16 @@ const errorHandler = (err, req, res, next) => {
     error.message = err.message || "Something Went Wrong!";
 
     if (err.code === 11000) error = DuplicateKeyError();
+
+    // JWT errors
+    if (err.name === "TokenExpiredError") {
+      error = JWTExpiredError();
+    }
+
+    if (err.name === "JsonWebTokenError") {
+      error = JWTInvalidError();
+    }
+
     sendProductionError(error, res);
   } else {
     res.status(400).json({
