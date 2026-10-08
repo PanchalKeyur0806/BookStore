@@ -57,6 +57,16 @@ const getOneOrder = catchAsync(async (req, res, next) => {
     }
 
     const order = await Order.findById(orderId);
+
+    if (!order) {
+      return next(new AppError("Order not found", 404));
+    }
+
+     // Make sure cached order belongs to current user
+    if (order.user.toString() !== req.user.id.toString()) {
+      return next(new AppError("Order not found", 404));
+    }
+
     await client.set(`order:${orderId}`, JSON.stringify(order));
 
     return res.status(200).json({

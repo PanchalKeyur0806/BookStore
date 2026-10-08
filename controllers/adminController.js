@@ -359,7 +359,7 @@ export const deactiveUser = catchAsync(async (req, res, next) => {
   if(!user){
     return next(new AppError("user not found"))
   }
-  
+
   if(user.role === "admin"){
     return next(new AppError("You can't deactivate admin user", 400))
   }

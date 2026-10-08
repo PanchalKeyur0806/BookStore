@@ -178,6 +178,11 @@ const login = catchAsync(async (req, res, next) => {
     return next(new AppError("No user found ", 404));
   }
 
+  // check that if user is not active
+  if(findUser.isActive === false){
+    return next(new AppError("your account has been deactivated", 401))
+  }
+
   // check the correct password
   const checkPassword = await findUser.comparePassword(
     password,
