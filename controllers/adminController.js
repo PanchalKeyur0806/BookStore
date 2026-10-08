@@ -318,6 +318,30 @@ export const getSalesAnalytics = catchAsync(async (req, res, next) => {
   });
 });
 
+export const activateUser = catchAsync(async (req, res, next) => {
+  const {userId } =req.params
+
+  if(!userId){
+    return next(new AppError("please provide user id", 404))
+  }
+
+  const user = await User.findById(userId)
+  if(!user){
+    return next(new AppError("user not found", 404))
+  }
+
+
+  user.isActive = true
+  await user.save()
+
+  res.status(200).json({
+    status: "success",
+    message: "User is activated",
+    data: user,
+  })
+})
+
+
 // Disable the user
 export const deactiveUser = catchAsync(async (req, res, next) => {
   const { userId } = req.params;
@@ -326,19 +350,65 @@ export const deactiveUser = catchAsync(async (req, res, next) => {
     return next(new AppError("User id not found", 404));
   }
 
-  const user = await User.findByIdAndUpdate(userId, { isActive: false }).select(
+  if(userId === req.user.id){
+    return next(new AppError("You can't deactivate your self",400))
+  }
+
+  // check that if the user is admin then disallow to deactivate the user
+  const user = await User.findById(userId)
+  if(!user){
+    return next(new AppError("user not found"))
+  }
+  
+  if(user.role === "admin"){
+    return next(new AppError("You can't deactivate admin user", 400))
+  }
+
+  const deactivateUser = await User.findByIdAndUpdate(userId, { isActive: false }, {new: true, validateBeforeSave: true}).select(
     "-password",
   );
-  if (!user) {
+  if (!deactivateUser) {
     return next(new AppError("User not found", 404));
   }
 
   res.status(200).json({
     status: "success",
     message: "User is suspended",
-    data: user,
+    data: deactivateUser,
   });
 });
+
+// Change User Role
+export const changeUserRole = catchAsync(async (req, res, next)=> {
+  const {userId} = req.params
+  const {role} = req.body
+
+  // check role is valid or not
+  const validRole = ["admin", "user"]
+  if(!validRole.includes(role)){
+    return next(new AppError("Please provide valid role", 400))
+  }
+
+  // you can't change your own role
+  if(userId === req.user.id){
+    return next(new AppError("You can't change your role", 400))
+  }
+
+  const user = await User.findById(userId)
+  if(!user){
+    return next(new AppError("user not found",404))
+  }
+
+  user.role = role
+  await user.save()
+  
+
+  res.status(200).json({
+    status: "success",
+    message: "User role changed successfully",
+    data: user,
+  })
+})
 
 // for book analytics
 export const bookAnalytics = catchAsync(async (req, res, next) => {
