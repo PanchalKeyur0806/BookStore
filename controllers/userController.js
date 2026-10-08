@@ -128,7 +128,16 @@ const getUserOrders = catchAsync(async (req, res, next) => {
 const updateUserInfo = catchAsync(async (req, res, next) => {
   const { id } = req.user;
 
-  const updateUser = await User.findByIdAndUpdate(id, req.body);
+  const { name,  dateOfBirth, phoneNumber, gender, address } = req.body;
+
+  const updateUser = await User.findByIdAndUpdate(id, {
+    name,
+    dateOfBirth,
+    phoneNumber,
+    gender,
+    address,
+  });
+
   if (!updateUser) {
     return next(new AppError("user is not updated", 400));
   }
@@ -136,6 +145,7 @@ const updateUserInfo = catchAsync(async (req, res, next) => {
   res.status(201).json({
     status: "success",
     message: "user updated successfully",
+    data: updateUser
   });
 });
 
@@ -146,6 +156,12 @@ const userFavBooks = catchAsync(async (req, res, next) => {
   const { bookId } = req.body;
   if (!bookId) {
     return next(new AppError("please provide book id", 404));
+  }
+
+  // find the book
+  const book = await Books.findById(bookId);
+  if (!book) {
+    return next(new AppError("Book not found", 404));
   }
 
   // find the user
