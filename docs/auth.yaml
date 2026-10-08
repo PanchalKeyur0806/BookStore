@@ -164,6 +164,7 @@ login:
       Authentication flow:
       1. Express-validator checks that email and password fields are present and well-formed.
       2. User is looked up in MongoDB by email address.
+      3. check if user account is verified, if it is then return error message
       3. The submitted plain password is verified against the bcrypt password hash.
       4. A JSON Web Token (JWT) signed with `JWT_SECRET_KEY` and configured expiration (`JWT_EXPIRES`) is generated containing the user ID payload `{ id: userId }`.
       5. The JWT token and complete user profile are returned to the client.
@@ -249,9 +250,13 @@ login:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/ErrorResponse"
-            example:
-              status: "Error"
-              message: "your password is incorrect, please enter correct password"
+            examples:
+              invalidPassword:
+                status: "Error"
+                message: "your password is incorrect, please enter correct password"
+              inactiveAccount:
+                status: "Error"
+                message: "your account has been deactivated"
 
       "404":
         description: No registered user found matching the provided email address.
