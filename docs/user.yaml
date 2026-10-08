@@ -653,6 +653,13 @@ allUsers:
               message: "all users found successfully"
               allUser:
                 - _id: "683aa9c34ae6c56e60594eb2"
+                  address:
+                    line: "Near Metro Station"
+                    street: "123 Tech Park Road"
+                    city: "Ahmedabad"
+                    state: "Gujarat"
+                    zipCode: 382418
+                    country: "India"
                   name: "Keyur Panchal"
                   email: "keyur.panchal@example.com"
                   isEmailVerified: true
@@ -665,6 +672,13 @@ allUsers:
                   totalSpent: 1250.00
                   createdAt: "2025-05-31T07:03:31.815Z"
                 - _id: "683aa9c34ae6c56e60594eb3"
+                  address:
+                    line: "Near Metro Station"
+                    street: "123 Tech Park Road"
+                    city: "Ahmedabad"
+                    state: "Gujarat"
+                    zipCode: 382418
+                    country: "India"
                   name: "Jane Smith"
                   email: "jane.smith@example.com"
                   isEmailVerified: true
