@@ -59,7 +59,9 @@ const createBooks = catchAsync(async (req, res, next) => {
 // getAll the books
 const getAllBooks = catchAsync(async (req, res, next) => {
   const { title, author, sort } = req.query;
-  const queryObj = {};
+  const queryObj = {
+    isDeleted: { $ne: true }
+  };
 
   // search by book title
   if (title) {
