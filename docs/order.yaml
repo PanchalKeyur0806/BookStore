@@ -7,6 +7,8 @@
 # individually from the root openapi.yaml file.
 #
 # Paths:
+#   /orders/createcheckoutsession:
+#     $ref: "./order.yaml#/checkoutSession"
 #   /orders/checkout-session:
 #     $ref: "./order.yaml#/checkoutSession"
 #   /orders/refundPayment/{stripePaymentId}:
@@ -19,7 +21,7 @@
 #     $ref: "./order.yaml#/success"
 
 # ============================================================
-# 1. /orders/checkout-session (POST)
+# 1. /orders/createcheckoutsession or /orders/checkout-session (POST)
 # ============================================================
 checkoutSession:
   post:
@@ -566,10 +568,10 @@ getOneOrder:
       2. **Cache Hit**:
          - Returns cached serialized order JSON immediately from memory without querying MongoDB.
          - Responds with HTTP `200 OK`: `{ status: "success", data: JSON.parse(orderData) }`.
-      3. **Cache Miss**:
          - Queries MongoDB via `Order.findById(orderId)`.
          - If no order exists, aborts with HTTP `404 Not Found` (`"Order not found"`).
-         - If found:
+         - **Ownership Verification**: Enforces that the order belongs to the authenticated customer (`order.user.toString() === req.user.id.toString()`). If the order belongs to another customer, access is denied with HTTP `404 Not Found` (`"Order not found"`).
+         - If valid and verified:
            - Serializes the order document and stores it in Redis under key `order:{orderId}`.
            - Responds with HTTP `200 OK`: `{ status: "success", data: order }`.
 

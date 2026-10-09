@@ -1196,10 +1196,10 @@ paymentAnalytics:
               message: "you are not allowed to perform this action"
 
 # ============================================================
-# 14. DEACTIVATE USER
+# 14. DEACTIVATE USER (PATCH)
 # ============================================================
 deactivateUser:
-  get:
+  patch:
     operationId: deactivateUser
     security:
       - bearerAuth: []
@@ -1209,20 +1209,29 @@ deactivateUser:
     summary: Suspend / deactivate a user account
 
     description: |
-      Deactivates a user account by setting `isActive: false`.
+      Suspends and deactivates a user account by setting `isActive: false` using `User.findByIdAndUpdate`.
+      Once deactivated, the user is blocked from logging in or performing customer operations, and excluded from public user queries.
 
-      The target user is identified by the `userId` parameter.
-      The updated user record is returned without password credentials.
+      ### Authentication & Access Control
+      - **Required Authentication**: Bearer JWT token in the `Authorization` header (`protect` middleware).
+      - **Role Restriction**: Strictly restricted to administrators (`restrictTo("admin")`).
 
-      Rate limit: 30 requests per minute.
+      ### Security & Business Constraints
+      - **Self-Deactivation Guard**: An administrator cannot suspend their own account (`userId === req.user.id`). Attempting to do so returns HTTP `400 Bad Request` (`"You can't deactivate your self"`).
+      - **Admin Account Protection**: Administrators cannot suspend other administrator accounts (`user.role === 'admin'`). Attempting to do so returns HTTP `400 Bad Request` (`"You can't deactivate admin user"`).
+
+      ### Validation & Rate Limiting
+      - **ID Validation**: `validateId("userId")` validates that `userId` is a valid 24-character hexadecimal MongoDB ObjectId. Returns HTTP `400 Bad Request` (`"Invalid Id, please enter correct id"`) if malformed.
+      - **Rate Limiting**: Protected by `mutationLimiter` (maximum **10 mutation requests per minute**) and router-level `getRateLimiter` (maximum **30 requests per minute**).
 
     parameters:
       - name: userId
         in: path
         required: true
-        description: MongoDB ObjectId of the user to deactivate.
+        description: 24-character hexadecimal MongoDB ObjectId of the user account to deactivate.
         schema:
           type: string
+          pattern: "^[0-9a-fA-F]{24}$"
         example: "683aa9c34ae6c56e60594eb2"
 
     responses:
@@ -1250,7 +1259,30 @@ deactivateUser:
                 cart: []
                 faviourites: []
                 createdAt: "2025-05-31T07:03:31.815Z"
-                updatedAt: "2026-10-02T12:00:00.000Z"
+                updatedAt: "2026-10-09T12:00:00.000Z"
+
+      "400":
+        description: Validation error or forbidden deactivation constraint.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              invalidId:
+                summary: Invalid MongoDB ObjectId format
+                value:
+                  status: "Error"
+                  message: "Invalid Id, please enter correct id"
+              selfDeactivation:
+                summary: Administrator attempting self-suspension
+                value:
+                  status: "Error"
+                  message: "You can't deactivate your self"
+              deactivateAdmin:
+                summary: Attempting to deactivate another administrator
+                value:
+                  status: "Error"
+                  message: "You can't deactivate admin user"
 
       "401":
         description: Authentication token missing or invalid.
@@ -1258,9 +1290,17 @@ deactivateUser:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/ErrorResponse"
-            example:
-              status: "Error"
-              message: "Please login to access this page"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
 
       "403":
         description: Authenticated user does not have administrator privileges.
@@ -1280,18 +1320,292 @@ deactivateUser:
               $ref: "./schema.yaml#/components/schemas/ErrorResponse"
             examples:
               userNotFound:
-                summary: User not found
+                summary: User account not found in database
                 value:
                   status: "Error"
-                  message: "User not found"
-              idNotFound:
+                  message: "user not found"
+              missingUserId:
                 summary: User ID missing
                 value:
                   status: "Error"
                   message: "User id not found"
 
       "429":
-        description: Rate limit exceeded (30 requests per minute).
+        description: Rate limit exceeded (10 mutation requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+# ============================================================
+# 15. ACTIVATE USER (PATCH)
+# ============================================================
+activateUser:
+  patch:
+    operationId: activateUser
+    security:
+      - bearerAuth: []
+    tags:
+      - admin
+
+    summary: Activate / unsuspend a user account
+
+    description: |
+      Restores and activates a suspended user account by setting `isActive: true` and persisting the change with `user.save()`.
+      Once activated, the customer regains access to their account, can log in, and place bookstore orders.
+
+      ### Authentication & Access Control
+      - **Required Authentication**: Bearer JWT token in the `Authorization` header (`protect` middleware).
+      - **Role Restriction**: Strictly restricted to administrators (`restrictTo("admin")`).
+
+      ### Validation & Rate Limiting
+      - **ID Validation**: `validateId("userId")` validates that `userId` is a valid 24-character hexadecimal MongoDB ObjectId. Returns HTTP `400 Bad Request` (`"Invalid Id, please enter correct id"`) if malformed.
+      - **Rate Limiting**: Protected by `mutationLimiter` (maximum **10 mutation requests per minute**) and router-level `getRateLimiter` (maximum **30 requests per minute**).
+
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        description: 24-character hexadecimal MongoDB ObjectId of the user account to activate.
+        schema:
+          type: string
+          pattern: "^[0-9a-fA-F]{24}$"
+        example: "683aa9c34ae6c56e60594eb2"
+
+    responses:
+      "200":
+        description: User account activated successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ActivateUserResponse"
+            example:
+              status: "success"
+              message: "User is activated"
+              data:
+                _id: "683aa9c34ae6c56e60594eb2"
+                name: "John Doe"
+                email: "johndoe@example.com"
+                isEmailVerified: true
+                role: "user"
+                dateOfBirth: "2000-01-15T00:00:00.000Z"
+                phoneNumber: 1234567890
+                gender: "male"
+                isActive: true
+                totalOrderes: 3
+                totalSpent: 1250
+                cart: []
+                faviourites: []
+                createdAt: "2025-05-31T07:03:31.815Z"
+                updatedAt: "2026-10-09T12:00:00.000Z"
+
+      "400":
+        description: Invalid MongoDB ObjectId format.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Invalid Id, please enter correct id"
+
+      "401":
+        description: Authentication token missing or invalid.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user does not have administrator privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not allowed to perform this action"
+
+      "404":
+        description: User ID not provided or user not found.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              userNotFound:
+                summary: User account not found in database
+                value:
+                  status: "Error"
+                  message: "user not found"
+              missingUserId:
+                summary: User ID missing from parameter
+                value:
+                  status: "Error"
+                  message: "please provide user id"
+
+      "429":
+        description: Rate limit exceeded (10 mutation requests per minute).
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "Too many requests. Please try again later"
+
+# ============================================================
+# 16. CHANGE USER ROLE (PATCH)
+# ============================================================
+changeUserRole:
+  patch:
+    operationId: changeUserRole
+    security:
+      - bearerAuth: []
+    tags:
+      - admin
+
+    summary: Modify a user's role
+
+    description: |
+      Changes the authorization role of a user account. Permits switching between `"user"` and `"admin"`.
+
+      ### Authentication & Access Control
+      - **Required Authentication**: Bearer JWT token in the `Authorization` header (`protect` middleware).
+      - **Role Restriction**: Strictly restricted to administrators (`restrictTo("admin")`).
+
+      ### Security & Role Constraints
+      - **Self-Role Modification Guard**: An administrator cannot alter their own role (`userId === req.user.id`). Attempting to do so returns HTTP `400 Bad Request` (`"You can't change your role"`).
+      - **Valid Role Enforcements**: Only roles included in `["admin", "user"]` are accepted. Any other string value triggers HTTP `400 Bad Request` (`"Please provide valid role"`).
+
+      ### Validation & Rate Limiting
+      - **ID Validation**: `validateId("userId")` validates that `userId` is a valid 24-character hexadecimal MongoDB ObjectId. Returns HTTP `400 Bad Request` (`"Invalid Id, please enter correct id"`) if malformed.
+      - **Rate Limiting**: Protected by `mutationLimiter` (maximum **10 mutation requests per minute**) and router-level `getRateLimiter` (maximum **30 requests per minute**).
+
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        description: 24-character hexadecimal MongoDB ObjectId of the target user whose role is to be updated.
+        schema:
+          type: string
+          pattern: "^[0-9a-fA-F]{24}$"
+        example: "683aa9c34ae6c56e60594eb2"
+
+    requestBody:
+      required: true
+      description: JSON payload containing the new role assignment.
+      content:
+        application/json:
+          schema:
+            $ref: "./schema.yaml#/components/schemas/ChangeUserRoleRequest"
+          example:
+            role: "admin"
+
+    responses:
+      "200":
+        description: User role updated successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ChangeUserRoleResponse"
+            example:
+              status: "success"
+              message: "User role changed successfully"
+              data:
+                _id: "683aa9c34ae6c56e60594eb2"
+                name: "John Doe"
+                email: "johndoe@example.com"
+                isEmailVerified: true
+                role: "admin"
+                dateOfBirth: "2000-01-15T00:00:00.000Z"
+                phoneNumber: 1234567890
+                gender: "male"
+                isActive: true
+                totalOrderes: 3
+                totalSpent: 1250
+                cart: []
+                faviourites: []
+                createdAt: "2025-05-31T07:03:31.815Z"
+                updatedAt: "2026-10-09T12:00:00.000Z"
+
+      "400":
+        description: Invalid ObjectId, unrecognized role, or prohibited self-role change.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              invalidId:
+                summary: Invalid MongoDB ObjectId format
+                value:
+                  status: "Error"
+                  message: "Invalid Id, please enter correct id"
+              invalidRole:
+                summary: Role is not 'admin' or 'user'
+                value:
+                  status: "Error"
+                  message: "Please provide valid role"
+              selfRoleChange:
+                summary: Administrator attempting to change their own role
+                value:
+                  status: "Error"
+                  message: "You can't change your role"
+
+      "401":
+        description: Authentication token missing or invalid.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            examples:
+              missingToken:
+                summary: Bearer token omitted
+                value:
+                  status: "Error"
+                  message: "Token not found please register first"
+              invalidToken:
+                summary: Token invalid or expired
+                value:
+                  status: "Error"
+                  message: "Please login to access this page"
+
+      "403":
+        description: Authenticated user does not have administrator privileges.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "you are not allowed to perform this action"
+
+      "404":
+        description: User not found.
+        content:
+          application/json:
+            schema:
+              $ref: "./schema.yaml#/components/schemas/ErrorResponse"
+            example:
+              status: "Error"
+              message: "user not found"
+
+      "429":
+        description: Rate limit exceeded (10 mutation requests per minute).
         content:
           application/json:
             schema:

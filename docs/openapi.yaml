@@ -163,8 +163,14 @@ paths:
   /admin/payment/analytics:
     $ref: "./admin.yaml#/paymentAnalytics"
 
+  /admin/activateUser/{userId}:
+    $ref: "./admin.yaml#/activateUser"
+
   /admin/deactivateUser/{userId}:
     $ref: "./admin.yaml#/deactivateUser"
+
+  /admin/change-role/{userId}:
+    $ref: "./admin.yaml#/changeUserRole"
 
   # ============================================================
   # BOOK ROUTES
@@ -192,6 +198,9 @@ paths:
   # ============================================================
   # ORDER ROUTES
   # ============================================================
+
+  /orders/createcheckoutsession:
+    $ref: "./order.yaml#/checkoutSession"
 
   /orders/checkout-session:
     $ref: "./order.yaml#/checkoutSession"
@@ -476,6 +485,15 @@ components:
 
     DeactivateUserResponse:
       $ref: "./schema.yaml#/components/schemas/DeactivateUserResponse"
+
+    ActivateUserResponse:
+      $ref: "./schema.yaml#/components/schemas/ActivateUserResponse"
+
+    ChangeUserRoleRequest:
+      $ref: "./schema.yaml#/components/schemas/ChangeUserRoleRequest"
+
+    ChangeUserRoleResponse:
+      $ref: "./schema.yaml#/components/schemas/ChangeUserRoleResponse"
 
     # ============================================================
     # BOOK SCHEMAS

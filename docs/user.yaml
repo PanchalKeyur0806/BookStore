@@ -173,11 +173,20 @@ updateMe:
       - **Required Authentication**: Bearer JWT token (`protect` middleware).
       - **Email Verification**: User account email address must be verified (`isEmailVerified: true`).
 
-      ### Operational Behavior
-      - Executes `User.findByIdAndUpdate(req.user.id, req.body)` to modify permitted account fields.
-      - If the update operation cannot be fulfilled, the server returns HTTP `400 Bad Request`
-        (`"user is not updated"`).
-      - Upon successful modification, the endpoint responds with HTTP `201 Created`.
+      ### Operational Behavior & Validation
+      - **Input Validation (`validateUser` middleware)**:
+        - `name`: Optional, must be a string (`"Name must be a string"`).
+        - `dateOfBirth`: Optional, must be a valid ISO date (`"Date of birth must be a date"`).
+        - `phoneNumber`: Optional, must be a numeric value (`"Phone Number must be a number"`).
+        - `gender`: Optional, must be one of `["male", "female", "others"]` (`"Gender must be male, female, or others"`).
+        - `address`: Optional object (`"Address must be an object"`).
+        - `address.line`, `address.street`, `address.city`, `address.state`, `address.country`: Optional, must be strings.
+        - `address.zipCode`: Optional, must be a numeric value (`"Zip Code must be a number"`).
+        - Any validation failure returns HTTP `400 Bad Request` with the first validation error message.
+      - **Database Update**:
+        - Executes `User.findByIdAndUpdate(req.user.id, { name, dateOfBirth, phoneNumber, gender, address })`.
+        - If the update operation cannot be fulfilled, returns HTTP `400 Bad Request` (`"user is not updated"`).
+        - Upon successful update, responds with HTTP `201 Created` returning the updated user document in `data`.
 
       ### Rate Limiting
       - Protected by `mutationLimiter`: Maximum **10 mutation requests per minute** per client IP.
@@ -212,16 +221,60 @@ updateMe:
             example:
               status: "success"
               message: "user updated successfully"
+              data:
+                _id: "683aa9c34ae6c56e60594eb2"
+                name: "Keyur Panchal"
+                email: "keyur.panchal@example.com"
+                isEmailVerified: true
+                role: "user"
+                dateOfBirth: "2005-06-08T00:00:00.000Z"
+                phoneNumber: 9876543210
+                gender: "male"
+                address:
+                  line: "Near Metro Station"
+                  street: "123 Tech Park Road"
+                  city: "Ahmedabad"
+                  state: "Gujarat"
+                  zipCode: 382418
+                  country: "India"
+                isActive: true
+                totalOrderes: 2
+                totalSpent: 1250.00
+                createdAt: "2025-05-31T07:03:31.815Z"
+                updatedAt: "2026-10-09T12:00:00.000Z"
 
       "400":
-        description: Update failed or invalid input provided.
+        description: Validation failure or database update failed.
         content:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/ErrorResponse"
-            example:
-              status: "Error"
-              message: "user is not updated"
+            examples:
+              invalidGender:
+                summary: Invalid gender value
+                value:
+                  status: "Error"
+                  message: "Gender must be male, female, or others"
+              invalidDateOfBirth:
+                summary: Invalid date format
+                value:
+                  status: "Error"
+                  message: "Date of birth must be a date"
+              invalidPhone:
+                summary: Non-numeric phone number
+                value:
+                  status: "Error"
+                  message: "Phone Number must be a number"
+              invalidZipCode:
+                summary: Non-numeric zip code
+                value:
+                  status: "Error"
+                  message: "Zip Code must be a number"
+              updateFailed:
+                summary: Update operation could not be completed
+                value:
+                  status: "Error"
+                  message: "user is not updated"
 
       "401":
         description: Missing or invalid JWT authentication token.

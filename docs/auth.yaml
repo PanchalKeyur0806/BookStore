@@ -252,11 +252,15 @@ login:
               $ref: "./schema.yaml#/components/schemas/ErrorResponse"
             examples:
               invalidPassword:
-                status: "Error"
-                message: "your password is incorrect, please enter correct password"
+                summary: Password incorrect
+                value:
+                  status: "Error"
+                  message: "your password is incorrect, please enter correct password"
               inactiveAccount:
-                status: "Error"
-                message: "your account has been deactivated"
+                summary: Account deactivated
+                value:
+                  status: "Error"
+                  message: "your account has been deactivated"
 
       "404":
         description: No registered user found matching the provided email address.

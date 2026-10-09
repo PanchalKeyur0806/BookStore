@@ -398,9 +398,10 @@ bookReviews:
       - **Email Verification**: User account email address must be verified (`isEmailVerified: true`).
 
       ### Operational Logic
-      1. Verifies that `bookId` is supplied in the request path parameters.
-      2. Executes `Review.findOneAndUpdate({ book: bookId, user: req.user.id }, req.body)`.
-      3. **Automated Rating Resynchronization**:
+      1. Verifies that `bookId` is supplied in the request path parameters (`!bookId` -> HTTP 404 `"Book id not found"`).
+      2. Validates book existence via `Books.findById(bookId)`. If the book does not exist in the catalog, returns HTTP 404 `"Book not found"`.
+      3. Executes `Review.findOneAndUpdate({ book: bookId, user: req.user.id }, req.body, { new: true })`.
+      4. **Automated Rating Resynchronization**:
          A Mongoose `post(/^findOneAnd/)` middleware hook executes immediately after the update:
          - Calls `calcAvgRating(doc.book._id)` with the reviewed book's ID.
          - Aggregates all current reviews for the book and synchronizes `ratingAverage` and `ratingQuantity`
@@ -430,6 +431,14 @@ bookReviews:
             example:
               status: "success"
               message: "review updated successfully"
+              data:
+                _id: "683ab1234ae6c56e60594eca"
+                user: "683aa9c34ae6c56e60594eb2"
+                book: "683aab454ae6c56e60594eb7"
+                review: "Updated review: Still an absolute classic for any software craftsman."
+                rating: 4.5
+                createdAt: "2026-05-12T10:00:00.000Z"
+                updatedAt: "2026-10-09T14:30:00.000Z"
 
       "400":
         description: Validation failure (rating out of bounds).
@@ -478,14 +487,22 @@ bookReviews:
                   message: "you are not verified, please verified first then try again"
 
       "404":
-        description: Book identifier missing or review not found.
+        description: Book identifier missing or book not found in catalog.
         content:
           application/json:
             schema:
               $ref: "./schema.yaml#/components/schemas/ErrorResponse"
-            example:
-              status: "Error"
-              message: "Book id not found"
+            examples:
+              missingBookId:
+                summary: Book ID missing
+                value:
+                  status: "Error"
+                  message: "Book id not found"
+              bookNotFound:
+                summary: Book not found in catalog
+                value:
+                  status: "Error"
+                  message: "Book not found"
 
       "429":
         description: Rate limit exceeded (10 mutation requests per minute).
@@ -539,15 +556,13 @@ bookReviews:
       - Protected by `generalRateLimiter`: Maximum **15 requests per minute** per client IP.
 
     responses:
-      "200":
+      "204":
         description: Review successfully deleted and book rating metrics recalculated.
         content:
           application/json:
-            schema:
-              $ref: "./schema.yaml#/components/schemas/DeleteReviewResponse"
             example:
               status: "success"
-              message: "Review deleted successfully"
+              data: null
 
       "401":
         description: Missing or invalid JWT authentication token.

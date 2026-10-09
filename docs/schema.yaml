@@ -1544,7 +1544,7 @@ components:
           $ref: "#/components/schemas/PaymentAnalyticsData"
 
     # =========================================================
-    # USER DEACTIVATION SCHEMA
+    # USER MANAGEMENT (ADMIN) SCHEMAS
     # =========================================================
 
     DeactivateUserResponse:
@@ -1561,6 +1561,54 @@ components:
         message:
           type: string
           example: "User is suspended"
+        data:
+          $ref: "#/components/schemas/User"
+
+    ActivateUserResponse:
+      type: object
+      description: Response returned when an administrator activates a user account.
+      required:
+        - status
+        - message
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        message:
+          type: string
+          example: "User is activated"
+        data:
+          $ref: "#/components/schemas/User"
+
+    ChangeUserRoleRequest:
+      type: object
+      description: Request payload specifying the new role for the user account.
+      required:
+        - role
+      properties:
+        role:
+          type: string
+          enum:
+            - admin
+            - user
+          description: Role to assign to the user ("admin" or "user").
+          example: "admin"
+
+    ChangeUserRoleResponse:
+      type: object
+      description: Response returned when an administrator modifies a user's role.
+      required:
+        - status
+        - message
+        - data
+      properties:
+        status:
+          type: string
+          example: "success"
+        message:
+          type: string
+          example: "User role changed successfully"
         data:
           $ref: "#/components/schemas/User"
 
@@ -2137,6 +2185,7 @@ components:
       required:
         - status
         - message
+        - data
       properties:
         status:
           type: string
@@ -2144,6 +2193,8 @@ components:
         message:
           type: string
           example: "review updated successfully"
+        data:
+          $ref: "#/components/schemas/ReviewCreatedData"
 
     DeleteReviewResponse:
       type: object
@@ -2624,6 +2675,7 @@ components:
       required:
         - status
         - message
+        - data
       properties:
         status:
           type: string
@@ -2631,6 +2683,8 @@ components:
         message:
           type: string
           example: "user updated successfully"
+        data:
+          $ref: "#/components/schemas/User"
 
     AddFavBookRequest:
       type: object
@@ -2817,10 +2871,3 @@ components:
         message:
           type: string
           example: "Book successfully removed from wishlist"
-
-
-
-
-
-
-
