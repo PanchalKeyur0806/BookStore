@@ -174,14 +174,21 @@ const updateReview = catchAsync(async (req, res, next) => {
     return next(new AppError("Book id not found", 404));
   }
 
+  const findBook = await Books.findById(bookId);
+  if (!findBook) {
+    return next(new AppError("Book not found", 404));
+  }
+
   const review = await Review.findOneAndUpdate(
     { book: bookId, user: id },
     req.body,
+    { new: true },
   );
 
   res.status(200).json({
     status: "success",
     message: "review updated successfully",
+    data: review
   });
 });
 
@@ -192,9 +199,9 @@ const deleteReview = catchAsync(async (req, res, next) => {
 
   const review = await Review.findOneAndDelete({ book: bookId, user: id });
 
-  res.status(200).json({
+  res.status(204).json({
     status: "success",
-    message: "Review deleted successfully",
+    data: null,
   });
 });
 

@@ -58,8 +58,6 @@ const createCheckoutSession = catchAsync(async (req, res, next) => {
 
 // success controller
 const success = catchAsync(async (req, res, next) => {
-  const session = await stripe.checkout.sessions.retrieve(req.query.session_id);
-
   res.redirect("/");
 });
 

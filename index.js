@@ -27,7 +27,7 @@ dotenv.config();
 
 const app = express();
 
-app.get("/docs", (req, res) => {
+app.get("/", (req, res) => {
   res.sendFile(path.join(process.cwd(), "docs", "apidoc.html"));
 });
 

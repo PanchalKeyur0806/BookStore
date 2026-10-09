@@ -206,9 +206,6 @@ export const getDashboard = catchAsync(async (req, res, next) => {
         ],
         userByRoles: [
           {
-            $match: { role: { $ne: "admin" } },
-          },
-          {
             $group: {
               _id: "$role",
               count: { $sum: 1 },
