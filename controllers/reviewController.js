@@ -70,7 +70,7 @@ const getOneReview = catchAsync(async (req, res, next) => {
       return next(new AppError("Review not found", 404));
     }
 
-    await client.set(`user:${id}:book:${bookId}`, JSON.stringify(review));
+    await client.set(`user:${id}:book:${bookId}`, JSON.stringify(review), "EX", 15);
 
     return res.status(200).json({
       status: "success",

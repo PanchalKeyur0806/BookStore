@@ -13,8 +13,10 @@ info:
     url: "http://www.apache.org/licenses/LICENSE-2.0.html"
 
 servers:
-  - url: http://bookstore.kplabs.com/api
-    description: Local Development Server
+  - url: https://bookstore.kplabs.deno.net/
+    description: Demo Server
+  - url: http://localhost:8002/
+    description: Local Server
 
 tags:
   - name: auth
@@ -94,9 +96,6 @@ tags:
       - Retrieving all saved books in customer's wishlist with populated book catalog details (`/wishlist`)
       - Adding books to personal wishlist with real-time catalog existence and duplicate validation (`/wishlist/{bookId}`)
       - Removing books from customer wishlist (`/wishlist/{bookId}`)
-
-
-
 
 paths:
   # ============================================================
@@ -204,7 +203,7 @@ paths:
 
   /orders/checkout-session:
     $ref: "./order.yaml#/checkoutSession"
-  
+
   /orders/refundPayment/{stripePaymentId}:
     $ref: "./order.yaml#/refundPayments"
 
@@ -261,9 +260,6 @@ paths:
 
   /wishlist/{bookId}:
     $ref: "./wishlist.yaml#/wishlistByBookId"
-
-
-
 
 # ==============================================================
 # COMPONENTS
@@ -647,7 +643,3 @@ components:
 
     RemoveFromWishlistResponse:
       $ref: "./schema.yaml#/components/schemas/RemoveFromWishlistResponse"
-
-
-
-

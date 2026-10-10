@@ -2,6 +2,9 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import helmet from "helmet";
+import fs from "fs"
+import swaggerUi from "swagger-ui-express";
+import YAML from "yaml";
 
 // all routes
 import authRoutes from "./routes/authRoutes.js";
@@ -45,6 +48,10 @@ app.post("/webhook", express.raw({ type: "application/json" }), webhook);
 
 app.use(express.json());
 
+const openApiDocument = YAML.parse(
+  fs.readFileSync("./docs/bundle/openapi.yaml", "utf8")
+);
+
 app.use("/auth", authRoutes);
 app.use("/users", userRoutes);
 app.use("/books", bookRoutes);
@@ -54,6 +61,8 @@ app.use("/orders", orderRoutes);
 app.use("/reviews", reviewRoutes);
 app.use("/admin", adminRoutes);
 app.use("/wishlist", wishlistRoutes);
+
+app.use("/try", swaggerUi.serve, swaggerUi.setup(openApiDocument))
 app.use(errorHandler);
 
 export default app;

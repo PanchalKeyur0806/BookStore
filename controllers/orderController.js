@@ -67,7 +67,7 @@ const getOneOrder = catchAsync(async (req, res, next) => {
       return next(new AppError("Order not found", 404));
     }
 
-    await client.set(`order:${orderId}`, JSON.stringify(order));
+    await client.set(`order:${orderId}`, JSON.stringify(order), "EX", 15);
 
     return res.status(200).json({
       status: "success",

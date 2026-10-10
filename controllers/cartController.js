@@ -20,7 +20,8 @@ const getCart = catchAsync(async (req, res, next) => {
     // save it to redis
     const cartData = await client.set(
       `user:${userId}:cart`,
-      JSON.stringify(getCart)
+      JSON.stringify(getCart),
+      "EX", 15
     );
 
     // give response to user
@@ -128,7 +129,7 @@ const addToCart = catchAsync(async (req, res, next) => {
 
   //   save cart to Db and redis
   await cart.save();
-  await client.set(`user:${userId}:cart`, JSON.stringify(cart));
+  await client.set(`user:${userId}:cart`, JSON.stringify(cart), "EX", 15);
 
   //   return the response
   res.status(200).json({
@@ -187,7 +188,7 @@ const removeBookFromCart = catchAsync(async (req, res, next) => {
 
   //   save the cart
   await findExistingCart.save();
-  await client.set(`user:${userId}:cart`, JSON.stringify(findExistingCart));
+  await client.set(`user:${userId}:cart`, JSON.stringify(findExistingCart), "EX", 15);
 
   //   return the response
   res.status(200).json({

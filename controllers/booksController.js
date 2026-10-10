@@ -139,7 +139,7 @@ const getOneBook = catchAsync(async (req, res, next) => {
     if (!findBook) {
       return next(new AppError("Book not found", 404));
     }
-    await client.set(`book:${bookId}`, JSON.stringify(findBook));
+    await client.set(`book:${bookId}`, JSON.stringify(findBook), "EX", 15);
 
     return res.status(200).json({
       status: "success",
@@ -188,7 +188,7 @@ const updateBook = catchAsync(async (req, res, next) => {
     return next(new AppError("Book not found", 400));
   }
 
-  await client.set(`book:${bookId}`, JSON.stringify(updateBook));
+  await client.set(`book:${bookId}`, JSON.stringify(updateBook), "EX", 15);
 
   res.status(200).json({
     status: "success",
